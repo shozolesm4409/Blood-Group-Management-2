@@ -10,7 +10,7 @@ import { Landing } from './pages/Landing';
 import { ManageDonations, DonorSearch, SystemLogs, UserManagement, DeletedRecords, DirectoryPermissions, LandingPageManagement } from './pages/Admin';
 import { MyDonations } from './pages/MyDonations';
 import { SupportCenter } from './pages/SupportCenter';
-import { DonationFeedbackPage, FeedbackApprovalPage } from './pages/Feedback';
+import { DonationFeedbackPage, FeedbackApprovalPage, PublicFeedbackPage } from './pages/Feedback';
 import { UserRole } from './types';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children?: React.ReactNode, allowedRoles?: UserRole[] }) => {
@@ -37,6 +37,7 @@ const App = () => {
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/public-feedbacks" element={<PublicFeedbackPage />} />
           
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

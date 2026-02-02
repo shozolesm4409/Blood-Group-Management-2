@@ -54,6 +54,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     if (user) {
       const unsubscribeMessages = subscribeToAllIncomingMessages(user.id, (msgs) => {
         setUnreadMsgCount(msgs.length);
+      }, (err) => {
+        console.debug("Layout message subscription restricted:", err.message);
       });
       return () => unsubscribeMessages();
     }

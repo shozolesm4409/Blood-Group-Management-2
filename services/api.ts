@@ -39,6 +39,10 @@ const COLLECTIONS = {
   FEEDBACKS: 'feedbacks'
 };
 
+const CACHE_KEYS = {
+  APPROVED_FEEDBACKS: 'bloodlink_cached_feedbacks'
+};
+
 export const ADMIN_EMAIL = 'shozolesm4409@gmail.com'.trim().toLowerCase();
 
 const createLog = async (action: string, userId: string, userName: string, details: string, userAvatar?: string) => {
@@ -54,6 +58,12 @@ const createLog = async (action: string, userId: string, userName: string, detai
   } catch (e) {
     console.debug("Audit logging failed.");
   }
+};
+
+// Local Caching Helpers
+export const getCachedFeedbacks = (): DonationFeedback[] => {
+  const cached = localStorage.getItem(CACHE_KEYS.APPROVED_FEEDBACKS);
+  return cached ? JSON.parse(cached) : [];
 };
 
 export const getUserProfile = async (uid: string): Promise<User | null> => {
@@ -107,7 +117,6 @@ export const updateDonationStatus = async (id: string, status: DonationStatus, a
   }
 };
 
-// --- Feedback Services ---
 export const submitFeedback = async (message: string, user: User) => {
   await addDoc(collection(db, COLLECTIONS.FEEDBACKS), {
     userId: user.id,
@@ -115,9 +124,14 @@ export const submitFeedback = async (message: string, user: User) => {
     userAvatar: user.avatar || '',
     message,
     status: FeedbackStatus.PENDING,
-    isVisible: false, // Default hidden until approved
+    isVisible: false,
     timestamp: new Date().toISOString()
   });
+};
+
+export const deleteFeedback = async (feedbackId: string, admin: User) => {
+  await deleteDoc(doc(db, COLLECTIONS.FEEDBACKS, feedbackId));
+  await createLog('FEEDBACK_DELETE', admin.id, admin.name, `Deleted feedback ${feedbackId}`, admin.avatar);
 };
 
 export const getAllFeedbacks = async (): Promise<DonationFeedback[]> => {
@@ -137,8 +151,7 @@ export const toggleFeedbackVisibility = async (feedbackId: string, isVisible: bo
   await updateDoc(doc(db, COLLECTIONS.FEEDBACKS, feedbackId), { isVisible });
 };
 
-export const subscribeToApprovedFeedbacks = (callback: (feedbacks: DonationFeedback[]) => void) => {
-  // Only show feedbacks that are APPROVED and set to isVisible: true
+export const subscribeToApprovedFeedbacks = (callback: (feedbacks: DonationFeedback[]) => void, onError?: (err: any) => void) => {
   const q = query(
     collection(db, COLLECTIONS.FEEDBACKS), 
     where('status', '==', FeedbackStatus.APPROVED),
@@ -146,11 +159,13 @@ export const subscribeToApprovedFeedbacks = (callback: (feedbacks: DonationFeedb
     orderBy('timestamp', 'desc')
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DonationFeedback)));
-  });
+    const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DonationFeedback));
+    // Cache the JSON data for instant loading next time
+    localStorage.setItem(CACHE_KEYS.APPROVED_FEEDBACKS, JSON.stringify(data));
+    callback(data);
+  }, onError);
 };
 
-// --- Landing Page Settings ---
 export const getLandingConfig = async (): Promise<LandingPageConfig | null> => {
   const docRef = doc(db, COLLECTIONS.SETTINGS, 'landing');
   const snap = await getDoc(docRef);
@@ -279,7 +294,6 @@ export const handleDirectoryAccess = async (userId: string, approved: boolean, a
   }
 };
 
-// Fix: added missing requestSupportAccess function
 export const requestSupportAccess = async (user: User) => {
   await updateDoc(doc(db, COLLECTIONS.USERS, user.id), { supportAccessRequested: true });
   await createLog('SUPPORT_ACCESS_REQUEST', user.id, user.name, 'User requested support access.', user.avatar);
@@ -294,7 +308,6 @@ export const handleSupportAccess = async (userId: string, approved: boolean, adm
   }
 };
 
-// Fix: updated to accept optional onError callback to fix argument count error in SupportCenter
 export const subscribeToAllIncomingMessages = (userId: string, callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
   const q = query(collection(db, COLLECTIONS.MESSAGES), where('receiverId', '==', userId), where('read', '==', false));
   return onSnapshot(q, snap => {
@@ -389,13 +402,11 @@ export const sendMessage = async (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'r
   await addDoc(collection(db, COLLECTIONS.MESSAGES), { ...msg, timestamp: new Date().toISOString(), read: false });
 };
 
-// Fix: updated to accept optional onError callback to fix argument count error in SupportCenter
 export const subscribeToRoomMessages = (roomId: string, callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
   const q = query(collection(db, COLLECTIONS.MESSAGES), where('roomId', '==', roomId), orderBy('timestamp', 'asc'));
   return onSnapshot(q, snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage))), onError);
 };
 
-// Fix: updated to accept optional onError callback to fix argument count error in SupportCenter
 export const subscribeToAllSupportRooms = (callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
   const q = query(collection(db, COLLECTIONS.MESSAGES), orderBy('timestamp', 'asc'));
   return onSnapshot(q, snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage))), onError);

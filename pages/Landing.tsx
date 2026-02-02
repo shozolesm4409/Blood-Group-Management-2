@@ -2,11 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, onSnapshot, query, where } from '@firebase/firestore';
-import { signInAnonymously, onAuthStateChanged } from '@firebase/auth';
-import { auth } from '../services/firebase';
-import { db, subscribeToApprovedFeedbacks, getLandingConfig } from '../services/api';
+import { db, subscribeToApprovedFeedbacks, getLandingConfig, getCachedFeedbacks } from '../services/api';
 import { DonationStatus, DonationFeedback, LandingPageConfig } from '../types';
-import { Droplet, Users, HeartPulse, Activity, Quote, User as UserIcon, Calendar, ArrowRight } from 'lucide-react';
+import { Droplet, Users, HeartPulse, Activity, Quote, User as UserIcon, Calendar, ArrowRight, MessageSquareQuote } from 'lucide-react';
 
 export const Landing = () => {
   const [stats, setStats] = useState({
@@ -14,7 +12,10 @@ export const Landing = () => {
     totalDonors: 0,
     totalVolume: 0
   });
-  const [feedbacks, setFeedbacks] = useState<DonationFeedback[]>([]);
+  
+  // Instant load from JSON cache stored in localStorage
+  const [feedbacks, setFeedbacks] = useState<DonationFeedback[]>(getCachedFeedbacks());
+  
   const [config, setConfig] = useState<LandingPageConfig>({
     heroTitle: 'এক ফোঁটা রক্ত\nহাজারো জীবনের আশা',
     heroSubtitle: 'রক্তদাতা ও প্রয়োজনের মাঝে সবচেয়ে দ্রুত ও নিরাপদ সেতু। আজই আমাদের কমিউনিটিতে যোগ দিন — একটি জীবন বাঁচানোর মহান সুযোগ নিন।',
@@ -27,75 +28,52 @@ export const Landing = () => {
     ctaSubtitle: 'আমাদের শক্তিশালী ডিরেক্টরি ব্যবহার করে মুহূর্তের মধ্যে নিকটস্থ রক্তদাতাদের সাথে যোগাযোগ করুন।',
     ctaButtonText: 'এখনই শুরু করুন'
   });
-  const [loading, setLoading] = useState(true);
-  const [isLive, setIsLive] = useState(false);
+  
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
-    let unsubscribeUsers: (() => void) | undefined;
-    let unsubscribeDonations: (() => void) | undefined;
-    let unsubscribeFeedbacks: (() => void) | undefined;
-
-    // Load initial config
+    // 1. Load Landing Page Configuration (Public)
     getLandingConfig().then(data => {
       if (data) setConfig(data);
     });
 
-    // We use onAuthStateChanged to ensure we have a valid auth token (even anonymous)
-    // before we start the Firestore listeners to avoid Permission Denied errors.
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsLive(true);
-        
-        // 1. Start Users Listener (Total Community Members)
-        unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-          setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
-        }, (error) => {
-          console.error("Firestore Users Error:", error);
-        });
+    // 2. Statistics Listeners (Public Read - Works without Auth now)
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      setStats(prev => ({ ...prev, totalUsers: snapshot.size }));
+      setLoadingStats(false);
+    }, (error) => {
+      console.debug("Users stats restricted:", error);
+    });
 
-        // 2. Start Donations Listener (Donor Counts & Volume)
-        unsubscribeDonations = onSnapshot(collection(db, 'donations'), (snapshot) => {
-          const donationDocs = snapshot.docs.map(doc => doc.data());
-          const completedDonations = donationDocs.filter(d => d.status === DonationStatus.COMPLETED);
-          
-          const totalVolume = completedDonations.reduce((acc, curr) => acc + (Number(curr.units) || 0), 0);
-          const uniqueDonorIds = new Set(completedDonations.map(d => d.userId));
-          
-          setStats(prev => ({ 
-            ...prev, 
-            totalDonors: uniqueDonorIds.size, 
-            totalVolume: totalVolume 
-          }));
-          setLoading(false);
-        }, (error) => {
-          console.error("Firestore Donations Error:", error);
-          setLoading(false);
-        });
+    const unsubDons = onSnapshot(collection(db, 'donations'), (snapshot) => {
+      const donationDocs = snapshot.docs.map(doc => doc.data());
+      const completedDonations = donationDocs.filter(d => d.status === DonationStatus.COMPLETED);
+      const totalVolume = completedDonations.reduce((acc, curr) => acc + (Number(curr.units) || 0), 0);
+      const uniqueDonorIds = new Set(completedDonations.map(d => d.userId));
+      
+      setStats(prev => ({ 
+        ...prev, 
+        totalDonors: uniqueDonorIds.size, 
+        totalVolume: totalVolume 
+      }));
+    }, (error) => {
+      console.debug("Donations stats restricted:", error);
+    });
 
-        // 3. Start Approved Feedbacks Listener (Visible only)
-        unsubscribeFeedbacks = subscribeToApprovedFeedbacks((data) => {
-          setFeedbacks(data);
-        });
-      } else {
-        // If no user is present, sign in anonymously to satisfy Firestore "auth != null" rules
-        signInAnonymously(auth).catch(err => {
-          console.error("Anonymous auth failed:", err);
-          setLoading(false);
-        });
-      }
+    // 3. Feedback Subscription (Instant UI update & Cache Sync)
+    const unsubscribeFeedbacks = subscribeToApprovedFeedbacks((data) => {
+      setFeedbacks(data);
     });
 
     return () => {
-      unsubscribeAuth();
-      if (unsubscribeUsers) unsubscribeUsers();
-      if (unsubscribeDonations) unsubscribeDonations();
-      if (unsubscribeFeedbacks) unsubscribeFeedbacks();
+      unsubUsers();
+      unsubDons();
+      unsubscribeFeedbacks();
     };
   }, []);
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] font-sans selection:bg-red-100 selection:text-red-600 overflow-x-hidden">
-      {/* Navigation */}
       <header className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-[5%] py-4 flex justify-between items-center h-16 lg:h-20 transition-all">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
@@ -103,14 +81,18 @@ export const Landing = () => {
           </div>
           <span className="text-xl lg:text-2xl font-black text-slate-900 tracking-tighter">BloodLink</span>
         </div>
-        <div className="flex items-center gap-4">
-          <Link to="/login" className="text-slate-600 font-bold text-sm hover:text-red-600 transition-colors">লগইন</Link>
-          <Link to="/register" className="bg-red-600 text-white px-6 py-2 rounded-full font-bold text-sm lg:text-base hover:bg-red-700 hover:scale-105 transition-all shadow-md shadow-red-100">রেজিস্ট্রেশন</Link>
+        <div className="flex items-center gap-6 lg:gap-10">
+          <Link to="/public-feedbacks" className="text-slate-600 font-bold text-sm hover:text-red-600 transition-colors flex items-center gap-2">
+            <MessageSquareQuote size={18} /> ফিডব্যাক
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/login" className="text-slate-600 font-bold text-sm hover:text-red-600 transition-colors">লগইন</Link>
+            <Link to="/register" className="bg-red-600 text-white px-6 py-2 rounded-full font-bold text-sm lg:text-base hover:bg-red-700 hover:scale-105 transition-all shadow-md shadow-red-100">রেজিস্ট্রেশন</Link>
+          </div>
         </div>
       </header>
 
       <main className="pt-16 lg:pt-20">
-        {/* Hero Section */}
         <section className="bg-gradient-to-br from-[#c1121f] to-[#e63946] text-white text-center py-24 lg:py-40 px-[5%] flex flex-col items-center relative">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none overflow-hidden">
             <Droplet className="absolute top-10 left-[10%] rotate-12" size={120} />
@@ -134,13 +116,12 @@ export const Landing = () => {
           </div>
         </section>
 
-        {/* Real-time Statistics Section */}
         <section className="py-20 lg:py-32 px-[5%] bg-white">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-16">
               <div className="inline-flex items-center gap-2 bg-red-50 text-red-600 px-4 py-1.5 rounded-full mb-4">
-                <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                <span className="text-[10px] font-black uppercase tracking-widest">{isLive ? 'Live Connection Active' : 'Connecting to Database...'}</span>
+                <div className={`w-2 h-2 rounded-full ${!loadingStats ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                <span className="text-[10px] font-black uppercase tracking-widest">{!loadingStats ? 'Live Data Sync Active' : 'Connecting to Database...'}</span>
               </div>
               <h2 className="text-2xl lg:text-4xl font-black text-slate-900 mb-4 tracking-tight">
                 {config.statsSectionTitle}
@@ -148,54 +129,64 @@ export const Landing = () => {
               <div className="w-20 h-1.5 bg-red-600 mx-auto rounded-full"></div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
-              <StatCard value={loading ? '...' : stats.totalUsers} label="মোট মেম্বার" icon={Users} />
-              <StatCard value={loading ? '...' : stats.totalDonors} label="সফল ডোনার" icon={Activity} />
-              <StatCard value={loading ? '...' : `${stats.totalVolume.toLocaleString()} ml`} label="সংগৃহীত রক্ত" icon={HeartPulse} />
+              <StatCard value={loadingStats ? 0 : stats.totalUsers} label="মোট মেম্বার" icon={Users} />
+              <StatCard value={loadingStats ? 0 : stats.totalDonors} label="সফল ডোনার" icon={Activity} />
+              <StatCard value={loadingStats ? '0' : `${stats.totalVolume.toLocaleString()} ml`} label="সংগৃহীত রক্ত" icon={HeartPulse} />
             </div>
           </div>
         </section>
 
-        {/* Experience Feedback Section (Only Visible approved feedbacks) */}
-        {feedbacks.length > 0 && (
-          <section className="py-20 lg:py-32 px-[5%] bg-slate-50">
-            <div className="max-w-7xl mx-auto">
-              <div className="text-center mb-16">
-                <h2 className="text-2xl lg:text-4xl font-black text-slate-900 mb-4 tracking-tight">
-                  {config.feedbackSectionTitle}
-                </h2>
-                <div className="w-20 h-1.5 bg-red-600 mx-auto rounded-full"></div>
-                <p className="mt-4 text-slate-500 font-medium italic">
-                  {config.feedbackSectionSubtitle}
-                </p>
-              </div>
+        <section className="py-20 lg:py-32 px-[5%] bg-slate-50 min-h-[400px]">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-2xl lg:text-4xl font-black text-slate-900 mb-4 tracking-tight">
+                {config.feedbackSectionTitle}
+              </h2>
+              <div className="w-20 h-1.5 bg-red-600 mx-auto rounded-full"></div>
+              <p className="mt-4 text-slate-500 font-medium italic">
+                {config.feedbackSectionSubtitle}
+              </p>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {feedbacks.map(f => (
-                  <div key={f.id} className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-xl transition-all group">
-                    <div>
-                      <Quote className="text-red-100 group-hover:text-red-200 transition-colors mb-4" size={48} />
-                      <p className="text-slate-600 font-medium italic leading-relaxed mb-6">"{f.message}"</p>
-                    </div>
-                    <div className="flex items-center gap-4 pt-4 border-t border-slate-50">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                        {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" /> : <UserIcon className="p-2.5 text-slate-300" />}
-                      </div>
+            {feedbacks.length > 0 ? (
+              <div className="animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {feedbacks.slice(0, 6).map(f => (
+                    <div key={f.id} className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-xl transition-all group">
                       <div>
-                        <p className="font-black text-slate-900 text-sm">{f.userName}</p>
-                        <div className="flex items-center gap-1.5 text-slate-400">
-                          <Calendar size={12} />
-                          <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(f.timestamp).toLocaleDateString()}</span>
+                        <Quote className="text-red-100 group-hover:text-red-200 transition-colors mb-4" size={48} />
+                        <p className="text-slate-600 font-medium italic leading-relaxed mb-6">"{f.message}"</p>
+                      </div>
+                      <div className="flex items-center gap-4 pt-4 border-t border-slate-50">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                          {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" /> : <UserIcon className="p-2.5 text-slate-300" />}
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-900 text-sm">{f.userName}</p>
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                            <Calendar size={12} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(f.timestamp).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <div className="mt-12 text-center">
+                  <Link to="/public-feedbacks" className="inline-flex items-center gap-2 text-red-600 font-black uppercase tracking-widest text-sm hover:gap-4 transition-all">
+                    সবগুলো অভিজ্ঞতা দেখুন <ArrowRight size={20} />
+                  </Link>
+                </div>
               </div>
-            </div>
-          </section>
-        )}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                <Activity className="animate-spin text-red-600 mb-4" size={32} />
+                <p className="font-bold text-slate-400 italic">অভিজ্ঞতাগুলো লোড হচ্ছে...</p>
+              </div>
+            )}
+          </div>
+        </section>
 
-        {/* Call to Action */}
         <section className="py-24 bg-slate-900 text-white px-[5%] relative overflow-hidden">
           <div className="max-w-5xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-12 relative z-10">
             <div className="text-center lg:text-left">

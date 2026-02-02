@@ -1,11 +1,82 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, toggleFeedbackVisibility } from '../services/api';
-import { Card, Button, Input, Badge } from '../components/UI';
-import { MessageSquareQuote, Check, X, Clock, User as UserIcon, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks } from '../services/api';
+import { Card, Button, Badge } from '../components/UI';
+import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, Quote, ArrowLeft, Activity } from 'lucide-react';
 import { DonationFeedback, FeedbackStatus } from '../types';
+import { Link } from 'react-router-dom';
 import clsx from 'clsx';
+
+export const PublicFeedbackPage = () => {
+  // Initialize with cached JSON data for instant display
+  const [feedbacks, setFeedbacks] = useState<DonationFeedback[]>(getCachedFeedbacks());
+  const [loading, setLoading] = useState(feedbacks.length === 0);
+
+  useEffect(() => {
+    // Subscription works background-ly, updating the UI if anything changed in Firestore
+    const unsubscribe = subscribeToApprovedFeedbacks((data) => {
+      setFeedbacks(data);
+      setLoading(false);
+    }, (err) => {
+      console.debug("Public feedback subscription restricted:", err.message);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-50 py-10 px-[5%]">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-12">
+           <Link to="/" className="flex items-center gap-2 text-slate-500 font-bold hover:text-red-600 transition-colors">
+             <ArrowLeft size={20} /> হোমপেজে ফিরুন
+           </Link>
+           <div className="text-right">
+             <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">ডোনারদের অভিজ্ঞতা</h1>
+             <div className="w-16 h-1 bg-red-600 ml-auto rounded-full"></div>
+           </div>
+        </div>
+
+        {feedbacks.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
+            {feedbacks.map(f => (
+              <div key={f.id} className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-xl transition-all group">
+                <div>
+                  <Quote className="text-red-100 group-hover:text-red-200 transition-colors mb-4" size={48} />
+                  <p className="text-slate-600 font-medium italic leading-relaxed mb-6">"{f.message}"</p>
+                </div>
+                <div className="flex items-center gap-4 pt-4 border-t border-slate-50">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                    {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" /> : <UserIcon className="p-2.5 text-slate-300" />}
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-900 text-sm">{f.userName}</p>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Calendar size={12} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(f.timestamp).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : loading ? (
+          <div className="flex flex-col items-center justify-center py-32 opacity-30">
+            <Activity className="animate-spin text-red-600 mb-4" size={48} />
+            <div className="text-center font-black text-slate-400 uppercase tracking-widest">
+              অভিজ্ঞতাগুলো লোড হচ্ছে...
+            </div>
+          </div>
+        ) : (
+          <div className="py-32 text-center text-slate-400 font-bold italic bg-white rounded-[3rem] border border-dashed border-slate-200">
+            এখনো কোনো ফিডব্যাক এপ্রুভ করা হয়নি।
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const DonationFeedbackPage = () => {
   const { user } = useAuth();
@@ -72,6 +143,7 @@ export const DonationFeedbackPage = () => {
 };
 
 export const FeedbackApprovalPage = () => {
+  const { user } = useAuth();
   const [feedbacks, setFeedbacks] = useState<DonationFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('ALL');
@@ -106,6 +178,16 @@ export const FeedbackApprovalPage = () => {
       fetchFeedbacks();
     } catch (e) {
       alert("Visibility toggle failed.");
+    }
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    if (!user || !window.confirm("আপনি কি নিশ্চিতভাবে এই ফিডব্যাকটি ডিলিট করতে চান?")) return;
+    try {
+      await deleteFeedback(id, user);
+      fetchFeedbacks();
+    } catch (e) {
+      alert("Deletion failed.");
     }
   };
 
@@ -195,9 +277,13 @@ export const FeedbackApprovalPage = () => {
                           </button>
                         </>
                       )}
-                      {f.status !== FeedbackStatus.PENDING && (
-                         <Badge color="gray" className="cursor-default">Finalized</Badge>
-                      )}
+                      <button 
+                        onClick={() => handleDeleteFeedback(f.id)} 
+                        className="p-2 text-slate-300 hover:text-red-600 transition-colors"
+                        title="Delete Permanently"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>

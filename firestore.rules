@@ -1,0 +1,67 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function for Auth
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // --- Public Paths (Guest & User) ---
+    // Needed for Landing Page stats, configs, and approved feedbacks
+    
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    
+    match /donations/{donationId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    
+    match /feedbacks/{feedbackId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // --- Protected Paths (Authenticated Only) ---
+    
+    match /messages/{messageId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /revoked_permissions/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // --- Archive Paths ---
+    match /deleted_users/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /deleted_donations/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /deleted_logs/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // --- Fallback ---
+    match /{path=**} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Strict default
+    }
+  }
+}
