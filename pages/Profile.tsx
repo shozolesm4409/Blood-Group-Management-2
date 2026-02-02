@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile, changePassword, getAppPermissions } from '../services/api';
 import { Card, Input, Button, Select, Badge } from '../components/UI';
 import { User, BloodGroup, AppPermissions, UserRole } from '../types';
-import { UserCircle, Lock, Camera, AlertTriangle } from 'lucide-react';
+import { UserCircle, Lock } from 'lucide-react';
 
 export const Profile = () => {
   const { user, updateUser } = useAuth();
@@ -55,17 +54,17 @@ export const Profile = () => {
     const confirm = formData.get('confirmPassword') as string;
 
     if (newPwd !== confirm) {
-      alert("New passwords do not match.");
+      alert("Passwords do not match.");
       setPwdLoading(false);
       return;
     }
 
     try {
       await changePassword(user.id, user.name, current, newPwd);
-      alert("Password updated successfully.");
+      alert("Password updated.");
       (e.target as HTMLFormElement).reset();
     } catch (err: any) {
-      alert(err.message || 'Failed to update password.');
+      alert(err.message || 'Update failed.');
     } finally {
       setPwdLoading(false);
     }
@@ -73,43 +72,46 @@ export const Profile = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Account Settings</h1>
+      <h1 className="text-2xl font-bold">Profile Settings</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-6">
-          <Card className="p-6">
+          <Card className="p-6 border border-slate-200">
             <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4 overflow-hidden shadow-inner">
-                 {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <UserCircle size={64} className="text-slate-300" />}
+              <div className="w-20 h-20 bg-slate-50 rounded-l flex items-center justify-center mb-4 border border-slate-200 overflow-hidden">
+                 {user.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <UserCircle size={48} className="text-slate-300" />}
               </div>
-              <h2 className="text-xl font-bold text-slate-900">{user.name}</h2>
+              <h2 className="text-lg font-bold">{user.name}</h2>
               <Badge color="red" className="mt-2">{user.bloodGroup}</Badge>
             </div>
           </Card>
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Lock size={18} /> Security</h3>
+          <Card className="p-6 border border-slate-200">
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2 uppercase tracking-wider text-slate-500"><Lock size={16} /> Security PIN</h3>
             <form onSubmit={handlePasswordChange} className="space-y-4">
               <Input label="Current Password" name="currentPassword" type="password" required />
               <Input label="New Password" name="newPassword" type="password" required />
               <Input label="Confirm New" name="confirmPassword" type="password" required />
-              <Button type="submit" variant="secondary" className="w-full" isLoading={pwdLoading}>Change PIN</Button>
+              <Button type="submit" variant="secondary" className="w-full py-2 text-xs" isLoading={pwdLoading}>Change PIN</Button>
             </form>
           </Card>
         </div>
         <div className="lg:col-span-2">
-          <Card className="p-8">
-            <h3 className="text-lg font-semibold mb-6">Edit Identity</h3>
+          <Card className="p-8 border border-slate-200">
+            <h3 className="text-sm font-bold mb-3 uppercase tracking-wider text-slate-500">Identity Details</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input label="Name" name="name" defaultValue={user.name} disabled={isRestricted} />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input label="Registered Email (Read-only)" value={user.email} disabled />
+              <Input label="Full Name" name="name" defaultValue={user.name} disabled={isRestricted} />
+              <div className="grid grid-cols-2 gap-4">
                 <Input label="Phone" name="phone" defaultValue={user.phone} disabled={isRestricted} />
-                <Select label="Group" name="bloodGroup" defaultValue={user.bloodGroup} disabled={isRestricted}>
+                <Select label="Blood Group" name="bloodGroup" defaultValue={user.bloodGroup} disabled={isRestricted}>
                    {Object.values(BloodGroup).map(bg => <option key={bg} value={bg}>{bg}</option>)}
                 </Select>
               </div>
-              <Input label="City" name="location" defaultValue={user.location} disabled={isRestricted} />
-              <Input label="Photo URL" name="avatar" defaultValue={user.avatar} disabled={isRestricted} />
-              <div className="pt-6 border-t mt-6 flex justify-end"><Button type="submit" isLoading={loading} disabled={isRestricted}>Save Changes</Button></div>
+              <Input label="Location (City)" name="location" defaultValue={user.location} disabled={isRestricted} />
+              <Input label="Avatar Image URL" name="avatar" defaultValue={user.avatar} disabled={isRestricted} />
+              <div className="pt-3 flex justify-end">
+                <Button type="submit" isLoading={loading} disabled={isRestricted} className="px-10">Save Profile</Button>
+              </div>
             </form>
           </Card>
         </div>

@@ -87,31 +87,31 @@ export const MyDonations = () => {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 border-b text-xs text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4">Subject</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Location</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Action</th>
+                <th className="px-3 py-2">Subject</th>
+                <th className="px-3 py-2">Date</th>
+                <th className="px-3 py-2">Location</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {donations.map(d => (
                 <tr key={d.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
+                      <div className="w-8 h-8 rounded-l overflow-hidden bg-slate-100 border border-slate-200">
                         {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <Users className="p-1.5 text-slate-300" size={14} />}
                       </div>
                       <span className="font-bold">{user?.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-medium">{new Date(d.donationDate).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">{d.location}</td>
-                  <td className="px-6 py-4"><Badge color={d.status === 'COMPLETED' ? 'green' : 'yellow'}>{d.status}</Badge></td>
-                  <td className="px-6 py-4 text-right"><button onClick={() => setDeleteId(d.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={18} /></button></td>
+                  <td className="px-3 py-2 font-medium">{new Date(d.donationDate).toLocaleDateString()}</td>
+                  <td className="px-3 py-2">{d.location}</td>
+                  <td className="px-3 py-2"><Badge color={d.status === 'COMPLETED' ? 'green' : 'yellow'}>{d.status}</Badge></td>
+                  <td className="px-3 py-2 text-right"><button onClick={() => setDeleteId(d.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={18} /></button></td>
                 </tr>
               ))}
-              {donations.length === 0 && <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400">No records found.</td></tr>}
+              {donations.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-400">No records found.</td></tr>}
             </tbody>
           </table>
         </div>

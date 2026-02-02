@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +26,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [perms, setPerms] = useState<AppPermissions | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [pendingUserCount, setPendingUserCount] = useState(0);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
   useEffect(() => {
@@ -38,7 +38,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           const [users, donations] = await Promise.all([getUsers(), getDonations()]);
           const pendingUsers = users.filter(u => u.directoryAccessRequested || u.supportAccessRequested).length;
           const pendingDonations = donations.filter(d => d.status === DonationStatus.PENDING).length;
-          setNotificationCount(pendingUsers + pendingDonations);
+          setNotificationCount(pendingDonations);
+          setPendingUserCount(pendingUsers);
         } catch (e) {
           console.error("Failed to fetch notification counts", e);
         }
@@ -64,7 +65,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       to={to}
       onClick={() => setIsMobileMenuOpen(false)}
       className={clsx(
-        "flex items-center justify-between px-4 py-3 rounded-xl transition-all group",
+        "flex items-center justify-between px-2 py-1 rounded-l transition-all group",
         location.pathname === to 
           ? "bg-red-50 text-red-600 font-bold shadow-sm" 
           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -108,14 +109,14 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="h-full flex flex-col">
-          <div className="p-8 border-b border-slate-50 flex items-center gap-3">
+          <div className="p-3 border-b border-slate-50 flex items-center gap-3">
             <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-100">
               <Droplet className="text-white fill-current" size={22} />
             </div>
             <span className="text-2xl font-black text-slate-900 tracking-tighter">BloodLink</span>
           </div>
 
-          <nav className="flex-1 p-6 space-y-1.5 overflow-y-auto">
+          <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
             {currentRolePerms?.sidebar.dashboard && <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />}
             {currentRolePerms?.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="My Profile" />}
             {currentRolePerms?.sidebar.donors && <NavItem to="/donors" icon={Search} label="Donor Search" />}
@@ -129,13 +130,13 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 <div className="pt-6 pb-2 px-4">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Management</span>
                 </div>
-                {currentRolePerms?.sidebar.users && <NavItem to="/users" icon={Users} label="User Management" />}
+                {currentRolePerms?.sidebar.users && <NavItem to="/users" icon={Users} label="User Management" badge={pendingUserCount} />}
                 {currentRolePerms?.sidebar.manageDonations && (
                   <NavItem to="/manage-donations" icon={Droplet} label="All Donations" badge={notificationCount} />
                 )}
                 {isAdmin && (
                   <>
-                    <NavItem to="/notifications" icon={Bell} label="Notification Center" badge={notificationCount} />
+                    <NavItem to="/notifications" icon={Bell} label="Notification Center" badge={pendingUserCount} />
                     <NavItem to="/deleted-users" icon={Trash2} label="System Archives" />
                   </>
                 )}
@@ -144,7 +145,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             )}
           </nav>
 
-          <div className="p-6 border-t border-slate-50">
+          <div className="p-3 border-t border-slate-50">
             <div className="flex items-center gap-4 px-4 py-4 mb-4 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="w-10 h-10 rounded-full bg-white overflow-hidden flex items-center justify-center text-sm font-bold text-slate-600 flex-shrink-0 border border-slate-200">
                 {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" alt="Me" /> : user?.name.charAt(0)}
@@ -166,7 +167,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="lg:hidden bg-white border-b border-slate-200 p-5 flex items-center justify-between shadow-sm">
+        <header className="lg:hidden bg-white border-b border-slate-200 p-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-100">
               <Droplet className="text-white fill-current" size={20} />
@@ -174,13 +175,13 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <span className="font-black text-slate-900 tracking-tighter text-xl">BloodLink</span>
           </div>
           <div className="flex items-center gap-3">
-             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-slate-50 rounded-xl border border-slate-100">
                <Menu size={24} className="text-slate-700" />
              </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-5 lg:p-10">
+        <div className="flex-1 overflow-auto p-1 lg:p-4">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

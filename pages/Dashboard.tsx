@@ -92,19 +92,19 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter mb-1">Intelligence Hub</h1>
           <p className="text-slate-500 font-medium">{isAdmin ? 'System-wide monitoring and analytics.' : 'Track your personal contributions and system trends.'}</p>
         </div>
         <div className="flex gap-4">
-          <Button onClick={handleGenerateInsight} isLoading={insightLoading} variant="secondary" className="rounded-2xl px-8 shadow-xl">
+          <Button onClick={handleGenerateInsight} isLoading={insightLoading} variant="secondary" className="rounded-l px-7 shadow-xl">
             <Sparkles className="w-5 h-5 mr-3 text-yellow-400 fill-current" /> AI Analytics
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title={isAdmin ? "Total Volume" : "My Donations"} value={isAdmin ? `${allDonations.filter(d=>d.status===DonationStatus.COMPLETED).reduce((a,b)=>a+b.units,0)}ml` : `${totalUnits}ml`} icon={Droplet} color="text-red-600" bg="bg-red-50" />
         <StatCard title="Total Donors" value={allUsers.length} icon={Users} color="text-blue-600" bg="bg-blue-50" />
         <StatCard title="System Success" value={globalCompleted.length} icon={CheckCircle} color="text-green-600" bg="bg-green-50" />
@@ -115,14 +115,14 @@ export const Dashboard = () => {
         <div className="lg:col-span-2 space-y-8">
           {insight && (
             <Card className="p-8 bg-slate-900 text-white border-0 shadow-2xl relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+               <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
                  <Sparkles size={180} />
                </div>
                <div className="relative z-10">
                  <h3 className="text-lg font-black uppercase tracking-widest mb-6 flex items-center gap-3">
                    <Sparkles className="text-yellow-400" size={24} /> AI Analysis Report
                  </h3>
-                 <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-line bg-white/5 p-6 rounded-3xl border border-white/10">
+                 <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-line bg-white/5 p-3 rounded-l border border-white/10">
                    {insight}
                  </div>
                </div>
@@ -167,14 +167,14 @@ export const Dashboard = () => {
               </div>
               <div className="text-center py-6">
                 <div className="relative inline-block mb-6">
-                  <div className="w-28 h-28 bg-gradient-to-tr from-slate-800 to-slate-700 rounded-[2.5rem] mx-auto flex items-center justify-center text-4xl font-black border-4 border-slate-800 shadow-2xl group-hover:rotate-6 transition-transform overflow-hidden">
+                  <div className="w-28 h-28 bg-gradient-to-tr from-slate-800 to-slate-700 rounded-[1.5rem] mx-auto flex items-center justify-center text-4xl font-black border-4 border-slate-800 shadow-2xl group-hover:rotate-6 transition-transform overflow-hidden">
                     {topDonor?.avatar ? (
                       <img src={topDonor.avatar} className="w-full h-full object-cover" alt="Top Donor" />
                     ) : (
                       <span className="text-slate-300">{topDonor?.name.charAt(0) || '?'}</span>
                     )}
                   </div>
-                  <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-slate-900 p-2 rounded-2xl shadow-xl border-4 border-slate-900">
+                  <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-slate-900 p-2 rounded-l shadow-xl border-4 border-slate-900">
                     <Sparkles size={16} />
                   </div>
                 </div>
@@ -183,7 +183,7 @@ export const Dashboard = () => {
                   <Badge color="red" className="bg-red-500/10 text-red-400 border border-red-500/20">{topDonor?.bloodGroup || 'N/A'}</Badge>
                   <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{topDonor?.location || 'Unknown'}</span>
                 </div>
-                <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                <div className="bg-white/5 backdrop-blur-md rounded-l p-4 border border-white/10">
                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total System Contributions</p>
                    <p className="text-3xl font-black text-yellow-500">{topDonorCount} Donations</p>
                 </div>
@@ -197,14 +197,14 @@ export const Dashboard = () => {
                 <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest flex items-center gap-3">
                   <BellRing className="text-red-600" size={20} /> Notification Center
                 </h3>
-                {pendingItems.length > 0 && <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">{pendingItems.length}</span>}
+                {pendingItems.length > 0 && <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-l shadow-sm animate-pulse">{pendingItems.length}</span>}
               </div>
               
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {pendingItems.map((item, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col gap-3 group hover:border-red-100 transition-colors">
+                  <div key={idx} className="p-4 bg-slate-50 rounded-l border border-slate-100 flex flex-col gap-3 group hover:border-red-100 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-l bg-white border border-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {item.type === 'DONATION' ? (
                           item.userAvatar ? <img src={item.userAvatar} className="w-full h-full object-cover" /> : <Droplet className="text-red-600" size={20} />
                         ) : (
@@ -226,13 +226,13 @@ export const Dashboard = () => {
                     <div className="flex gap-2">
                       <button 
                         onClick={() => handleAction(item.id, item.type, item.directoryAccessRequested ? 'directory' : 'support', true)}
-                        className="flex-1 bg-white border border-slate-200 p-2 rounded-xl text-green-600 hover:bg-green-600 hover:text-white transition-all flex justify-center shadow-sm"
+                        className="flex-1 bg-white border border-slate-200 p-2 rounded-l text-green-600 hover:bg-green-600 hover:text-white transition-all flex justify-center shadow-sm"
                       >
                         <Check size={16} />
                       </button>
                       <button 
                         onClick={() => handleAction(item.id, item.type, item.directoryAccessRequested ? 'directory' : 'support', false)}
-                        className="flex-1 bg-white border border-slate-200 p-2 rounded-xl text-red-600 hover:bg-red-600 hover:text-white transition-all flex justify-center shadow-sm"
+                        className="flex-1 bg-white border border-slate-200 p-2 rounded-l text-red-600 hover:bg-red-600 hover:text-white transition-all flex justify-center shadow-sm"
                       >
                         <X size={16} />
                       </button>
@@ -247,7 +247,7 @@ export const Dashboard = () => {
                 )}
               </div>
               
-              <Link to="/notifications" className="w-full flex items-center justify-center gap-3 px-4 py-4 mt-6 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-colors bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <Link to="/notifications" className="w-full flex items-center justify-center gap-3 px-4 py-4 mt-6 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-colors bg-slate-50 rounded-l border border-dashed border-slate-200">
                 Manage All Requests <ArrowRight size={14} />
               </Link>
             </Card>
@@ -259,7 +259,7 @@ export const Dashboard = () => {
 };
 
 const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
-  <Card className="p-6 border-0 shadow-sm flex items-center gap-5 hover:shadow-md transition-shadow cursor-default group">
+  <Card className="p-3 border-0 shadow-sm flex items-center gap-5 hover:shadow-md transition-shadow cursor-default group">
     <div className={`p-4 rounded-[1.5rem] ${bg} transition-transform group-hover:scale-110 duration-300`}>
       <Icon className={`w-6 h-6 ${color} fill-current`} />
     </div>

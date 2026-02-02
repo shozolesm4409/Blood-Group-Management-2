@@ -1,4 +1,3 @@
-
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -31,6 +30,7 @@ const COLLECTIONS = {
   LOGS: 'logs',
   DELETED_USERS: 'deleted_users',
   DELETED_DONATIONS: 'deleted_donations',
+  DELETED_LOGS: 'deleted_logs',
   SETTINGS: 'settings',
   MESSAGES: 'messages',
   REVOKED_PERMISSIONS: 'revoked_permissions'
@@ -167,7 +167,9 @@ export const restoreDeletedUser = async (deletedUserId: string, admin: User) => 
   if (deletedSnap.exists()) {
     const data = deletedSnap.data();
     const { deletedAt, deletedBy, ...userProfile } = data;
+    // Restore back to users collection
     await setDoc(doc(db, COLLECTIONS.USERS, userProfile.id), userProfile);
+    // Delete from archives
     await deleteDoc(deletedRef);
     await createLog('USER_RESTORE', admin.id, admin.name, `Restored archived user: ${userProfile.name}`, admin.avatar);
   }
@@ -190,7 +192,9 @@ export const restoreDeletedDonation = async (deletedDonationId: string, admin: U
   if (deletedSnap.exists()) {
     const data = deletedSnap.data();
     const { deletedAt, deletedBy, ...donationRecord } = data;
+    // Restore back to donations collection
     await setDoc(doc(db, COLLECTIONS.DONATIONS, donationRecord.id), donationRecord);
+    // Delete from archives
     await deleteDoc(deletedRef);
     await createLog('DONATION_RESTORE', admin.id, admin.name, `Restored donation record for: ${donationRecord.userName}`, admin.avatar);
   }
@@ -200,49 +204,54 @@ export const deleteDonationRecord = async (id: string, admin: User) => {
   const ref = doc(db, COLLECTIONS.DONATIONS, id);
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    await addDoc(collection(db, COLLECTIONS.DELETED_DONATIONS), { 
-      ...snap.data(), 
+    const data = snap.data();
+    await setDoc(doc(db, COLLECTIONS.DELETED_DONATIONS, id), { 
+      ...data, 
       deletedAt: new Date().toISOString(), 
       deletedBy: admin.name 
     });
     await deleteDoc(ref);
-    await createLog('DONATION_DELETE', admin.id, admin.name, `System Archive: Donation record ${id} removed.`, admin.avatar);
+    await createLog('DONATION_DELETE', admin.id, admin.name, `Archived donation record ${id}.`, admin.avatar);
   }
-};
-
-export const handleSupportAccess = async (userId: string, approved: boolean, admin: User) => {
-  const userRef = doc(db, COLLECTIONS.USERS, userId);
-  const userSnap = await getDoc(userRef);
-  
-  if (userSnap.exists()) {
-    const userData = userSnap.data() as User;
-    await updateDoc(userRef, { hasSupportAccess: approved, supportAccessRequested: false });
-    
-    // If revoking, archive it
-    if (!approved) {
-      await addDoc(collection(db, COLLECTIONS.REVOKED_PERMISSIONS), {
-        userId,
-        userName: userData.name,
-        userAvatar: userData.avatar || '',
-        type: 'SUPPORT',
-        revokedAt: new Date().toISOString(),
-        revokedBy: admin.name
-      });
-    }
-
-    await createLog('SUPPORT_ACCESS_UPDATE', admin.id, admin.name, `${approved ? 'Approved' : 'Rejected/Revoked'} support access for ${userId}`, admin.avatar);
-  }
-};
-
-export const requestSupportAccess = async (user: User) => {
-  await updateDoc(doc(db, COLLECTIONS.USERS, user.id), { supportAccessRequested: true });
 };
 
 export const deleteLogEntry = async (id: string, admin: User) => {
   try {
-    await deleteDoc(doc(db, COLLECTIONS.LOGS, id));
+    const logRef = doc(db, COLLECTIONS.LOGS, id);
+    const logSnap = await getDoc(logRef);
+    if (logSnap.exists()) {
+      const logData = logSnap.data();
+      // Move to deleted_logs
+      await setDoc(doc(db, COLLECTIONS.DELETED_LOGS, id), {
+        ...logData,
+        deletedAt: new Date().toISOString(),
+        deletedBy: admin.name
+      });
+      await deleteDoc(logRef);
+    }
   } catch (e) {
-    console.debug("Log deletion failed.");
+    console.debug("Log archiving failed.");
+  }
+};
+
+export const getDeletedLogs = async (): Promise<any[]> => {
+  try {
+    const q = query(collection(db, COLLECTIONS.DELETED_LOGS), orderBy('deletedAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (e) {
+    return [];
+  }
+};
+
+export const restoreDeletedLog = async (deletedLogId: string, admin: User) => {
+  const deletedRef = doc(db, COLLECTIONS.DELETED_LOGS, deletedLogId);
+  const deletedSnap = await getDoc(deletedRef);
+  if (deletedSnap.exists()) {
+    const { deletedAt, deletedBy, ...logData } = deletedSnap.data();
+    await setDoc(doc(db, COLLECTIONS.LOGS, deletedLogId), logData);
+    await deleteDoc(deletedRef);
+    await createLog('LOG_RESTORE', admin.id, admin.name, `Restored activity log entry.`, admin.avatar);
   }
 };
 
@@ -266,38 +275,6 @@ export const restoreRevokedPermission = async (revokedId: string, admin: User) =
     await updateDoc(doc(db, COLLECTIONS.USERS, data.userId), update);
     await deleteDoc(revokedRef);
     await createLog('PERMISSION_RESTORE', admin.id, admin.name, `Restored ${data.type} permission for ${data.userName}`, admin.avatar);
-  }
-};
-
-export const subscribeToAllSupportRooms = (callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
-  const q = query(collection(db, COLLECTIONS.MESSAGES), orderBy('timestamp', 'desc'));
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage)));
-  }, (err) => {
-    if (onError) onError(err);
-  });
-};
-
-export const subscribeToAllIncomingMessages = (userId: string, callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
-  const q = query(collection(db, COLLECTIONS.MESSAGES), where('receiverId', '==', userId), where('read', '==', false));
-  return onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage)));
-  }, (err) => {
-    if (onError) onError(err);
-  });
-};
-
-export const markMessagesAsRead = async (roomId: string, userId: string) => {
-  try {
-    const q = query(collection(db, COLLECTIONS.MESSAGES), where('roomId', '==', roomId), where('receiverId', '==', userId), where('read', '==', false));
-    const snap = await getDocs(q);
-    const batch = writeBatch(db);
-    snap.docs.forEach(d => {
-      batch.update(d.ref, { read: true });
-    });
-    await batch.commit();
-  } catch (e) {
-    console.debug("Mark read suppressed.");
   }
 };
 
@@ -330,7 +307,7 @@ export const updateAppPermissions = async (perms: AppPermissions, admin: User): 
   } catch (e: any) {
     if (e?.code === 'permission-denied') {
       localStorage.setItem('bloodlink_permissions_override', JSON.stringify(perms));
-      return { synced: false, error: "Security Policy Block: Cloud sync was denied." };
+      return { synced: false, error: "Cloud sync denied." };
     }
     throw e;
   }
@@ -361,17 +338,10 @@ export const login = async (email: string, password: string): Promise<User> => {
   
   const data = userDoc.data() as User;
   
-  if (isAdminEmail && (data.role !== UserRole.ADMIN || !data.hasDirectoryAccess)) {
-    try {
-      await updateDoc(doc(db, COLLECTIONS.USERS, uid), { 
-        role: UserRole.ADMIN, 
-        hasDirectoryAccess: true 
-      });
-      data.role = UserRole.ADMIN;
-      data.hasDirectoryAccess = true;
-    } catch (e) {
-      console.error("SuperAdmin role sync failed.");
-    }
+  if (isAdminEmail && data.role !== UserRole.ADMIN) {
+    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true });
+    data.role = UserRole.ADMIN;
+    data.hasDirectoryAccess = true;
   }
   
   await createLog('LOGIN', uid, data.name, 'Authenticated successfully.', data.avatar);
@@ -433,7 +403,7 @@ export const addDonation = async (donation: Omit<DonationRecord, 'id' | 'status'
   if (status === DonationStatus.COMPLETED) {
     await updateDoc(doc(db, COLLECTIONS.USERS, donation.userId), { lastDonationDate: donation.donationDate });
   }
-  await createLog('DONATION_ADD', performer.id, performer.name, `Logged ${donation.units}ml for ${donation.userName}.`, performer.avatar);
+  await createLog('DONATION_ADD', performer.id, performer.name, `Logged ${donation.units}ml.`, performer.avatar);
   return { ...donation, status, id: docRef.id };
 };
 
@@ -459,7 +429,7 @@ export const deleteUserRecord = async (userId: string, admin: User): Promise<voi
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
     const userData = userSnap.data() as User;
-    await addDoc(collection(db, COLLECTIONS.DELETED_USERS), { ...userData, deletedAt: new Date().toISOString(), deletedBy: admin.name });
+    await setDoc(doc(db, COLLECTIONS.DELETED_USERS, userId), { ...userData, deletedAt: new Date().toISOString(), deletedBy: admin.name });
     await deleteDoc(userRef);
     await createLog('USER_DELETE', admin.id, admin.name, `Account Purged: ${userData.name}`, admin.avatar);
   }
@@ -482,6 +452,11 @@ export const requestDirectoryAccess = async (user: User) => {
   await updateDoc(doc(db, COLLECTIONS.USERS, user.id), { directoryAccessRequested: true });
 };
 
+// Fix: Added missing requestSupportAccess function export
+export const requestSupportAccess = async (user: User) => {
+  await updateDoc(doc(db, COLLECTIONS.USERS, user.id), { supportAccessRequested: true });
+};
+
 export const handleDirectoryAccess = async (userId: string, approved: boolean, admin: User) => {
   const userRef = doc(db, COLLECTIONS.USERS, userId);
   const userSnap = await getDoc(userRef);
@@ -490,7 +465,6 @@ export const handleDirectoryAccess = async (userId: string, approved: boolean, a
     const userData = userSnap.data() as User;
     await updateDoc(userRef, { hasDirectoryAccess: approved, directoryAccessRequested: false });
     
-    // If revoking, archive it
     if (!approved) {
       await addDoc(collection(db, COLLECTIONS.REVOKED_PERMISSIONS), {
         userId,
@@ -502,6 +476,61 @@ export const handleDirectoryAccess = async (userId: string, approved: boolean, a
       });
     }
 
-    await createLog('DIRECTORY_ACCESS_UPDATE', admin.id, admin.name, `Directory Access ${approved ? 'Granted' : 'Revoked'} for ${userId}`, admin.avatar);
+    await createLog('DIRECTORY_ACCESS_UPDATE', admin.id, admin.name, `Directory Access updated for ${userId}`, admin.avatar);
+  }
+};
+
+export const handleSupportAccess = async (userId: string, approved: boolean, admin: User) => {
+  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userSnap = await getDoc(userRef);
+  
+  if (userSnap.exists()) {
+    const userData = userSnap.data() as User;
+    await updateDoc(userRef, { hasSupportAccess: approved, supportAccessRequested: false });
+    
+    if (!approved) {
+      await addDoc(collection(db, COLLECTIONS.REVOKED_PERMISSIONS), {
+        userId,
+        userName: userData.name,
+        userAvatar: userData.avatar || '',
+        type: 'SUPPORT',
+        revokedAt: new Date().toISOString(),
+        revokedBy: admin.name
+      });
+    }
+
+    await createLog('SUPPORT_ACCESS_UPDATE', admin.id, admin.name, `Support access updated for ${userId}`, admin.avatar);
+  }
+};
+
+export const subscribeToAllSupportRooms = (callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
+  const q = query(collection(db, COLLECTIONS.MESSAGES), orderBy('timestamp', 'desc'));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage)));
+  }, (err) => {
+    if (onError) onError(err);
+  });
+};
+
+export const subscribeToAllIncomingMessages = (userId: string, callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
+  const q = query(collection(db, COLLECTIONS.MESSAGES), where('receiverId', '==', userId), where('read', '==', false));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage)));
+  }, (err) => {
+    if (onError) onError(err);
+  });
+};
+
+export const markMessagesAsRead = async (roomId: string, userId: string) => {
+  try {
+    const q = query(collection(db, COLLECTIONS.MESSAGES), where('roomId', '==', roomId), where('receiverId', '==', userId), where('read', '==', false));
+    const snap = await getDocs(q);
+    const batch = writeBatch(db);
+    snap.docs.forEach(d => {
+      batch.update(d.ref, { read: true });
+    });
+    await batch.commit();
+  } catch (e) {
+    console.debug("Mark read suppressed.");
   }
 };

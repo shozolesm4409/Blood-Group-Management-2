@@ -165,10 +165,10 @@ export const SupportCenter = () => {
          <div className="w-20"></div>
       </div>
 
-      <Card className="flex-1 flex flex-col border-0 shadow-2xl overflow-hidden rounded-3xl bg-slate-50 relative">
-         <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <Card className="flex-1 flex flex-col border-0 shadow-2xl overflow-hidden rounded-l bg-slate-50 relative">
+         <div className="flex-1 overflow-y-auto p-3 space-y-4">
             {permissionError && (
-              <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-2xl border border-red-100 flex items-center gap-3">
+              <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-l border border-red-100 flex items-center gap-3">
                 <AlertCircle size={18} className="flex-shrink-0" />
                 {permissionError}
               </div>
@@ -177,7 +177,7 @@ export const SupportCenter = () => {
             {messages.map((msg) => (
               <div key={msg.id} className={clsx("flex flex-col", msg.senderId === user?.id ? "items-end" : "items-start")}>
                 <div className={clsx(
-                  "max-w-[80%] p-4 rounded-3xl shadow-sm text-sm font-medium",
+                  "max-w-[80%] p-4 rounded-l shadow-sm text-sm font-medium",
                   msg.senderId === user?.id 
                     ? "bg-blue-600 text-white rounded-br-none" 
                     : (msg.isAdminReply ? "bg-red-50 text-red-900 rounded-bl-none border border-red-100" : "bg-white text-slate-900 rounded-bl-none border border-slate-100")
@@ -199,13 +199,13 @@ export const SupportCenter = () => {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type your message..."
-              className="flex-1 bg-slate-50 border-0 rounded-2xl px-5 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+              className="flex-1 bg-slate-50 border-0 rounded-l px-2 py-1.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 transition-all outline-none"
               disabled={isSending || !!permissionError}
             />
             <button 
               type="submit" 
               disabled={isSending || !newMessage.trim() || !!permissionError}
-              className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
+              className="p-3 bg-blue-600 text-white rounded-l hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
             >
               <Send size={20} />
             </button>
@@ -235,15 +235,15 @@ export const SupportCenter = () => {
            <div className="w-20"></div>
         </div>
 
-        <Card className="flex-1 flex flex-col border-0 shadow-lg overflow-hidden rounded-3xl bg-white p-6">
-          <div className="relative mb-6">
+        <Card className="flex-1 flex flex-col border-0 shadow-lg overflow-hidden rounded-l bg-white p-3">
+          <div className="relative mb-3">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
               placeholder="Search hero..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-6 py-4 bg-slate-50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full pl-12 pr-3 py-2 bg-slate-50 border-0 rounded-l text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
 
@@ -251,13 +251,13 @@ export const SupportCenter = () => {
             {filteredUsers.map(u => (
               <div key={u.id} onClick={() => { setSelectedRecipient(u); setActiveView('private-chat'); }} className="flex items-center justify-between p-4 bg-slate-50 hover:bg-blue-50 hover:shadow-md rounded-2xl cursor-pointer transition-all border border-transparent hover:border-blue-100 group">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center border-2 border-white shadow-sm overflow-hidden group-hover:scale-105 transition-transform">
+                  <div className="w-12 h-12 rounded-l bg-white flex items-center justify-center border-2 border-white shadow-sm overflow-hidden group-hover:scale-105 transition-transform">
                     {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <UserIcon size={20} className="text-slate-300" />}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-slate-900">{u.name}</p>
-                      {unreadCounts[u.id] > 0 && <span className="bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-bounce shadow-sm">{unreadCounts[u.id]}</span>}
+                      {unreadCounts[u.id] > 0 && <span className="bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-l animate-bounce shadow-sm">{unreadCounts[u.id]}</span>}
                     </div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{u.role}</p>
                   </div>
@@ -286,7 +286,7 @@ export const SupportCenter = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center gap-3">
-        <div className="p-3 bg-blue-50 rounded-2xl"><LifeBuoy className="text-blue-600" size={24} /></div>
+        <div className="p-3 bg-blue-50 rounded-l"><LifeBuoy className="text-blue-600" size={24} /></div>
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Support & Resource Center</h1>
           <p className="text-sm text-slate-500 font-medium">Connect with verified donors or system administration.</p>
@@ -322,7 +322,7 @@ export const SupportCenter = () => {
         <div className="space-y-6">
           <div className="border-b border-slate-100 pb-4">
             <p className="font-bold text-slate-800 mb-2 flex items-center gap-2"><CheckCircle size={16} className="text-green-500" /> How do I update my donation status?</p>
-            <p className="text-xs text-slate-500 font-medium pl-6">After your donation request, an administrator will verify the record to mark it as completed.</p>
+            <p className="text-xs text-slate-500 font-medium pl-3">After your donation request, an administrator will verify the record to mark it as completed.</p>
           </div>
         </div>
       </Card>
@@ -337,10 +337,10 @@ const SupportLinkCard = ({ icon: Icon, title, description, color, badge, isLocke
       "p-6 transition-all border-0 shadow-md group relative overflow-hidden h-full",
       isLocked ? "opacity-60 grayscale cursor-not-allowed" : "hover:shadow-xl"
     )}>
-      {badge > 0 && !isLocked && <span className="absolute top-4 right-4 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg border-2 border-white animate-pulse">{badge}</span>}
+      {badge > 0 && !isLocked && <span className="absolute top-4 right-4 bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-l shadow-lg border-2 border-white animate-pulse">{badge}</span>}
       {isLocked && <div className="absolute top-4 right-4 text-slate-400"><Lock size={16} /></div>}
       
-      <div className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform", !isLocked && "group-hover:scale-110", colors[color])}>
+      <div className={clsx("w-12 h-12 rounded-l flex items-center justify-center mb-4 transition-transform", !isLocked && "group-hover:scale-110", colors[color])}>
         <Icon size={24} />
       </div>
       <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
