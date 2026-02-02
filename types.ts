@@ -22,6 +22,25 @@ export enum DonationStatus {
   REJECTED = 'REJECTED'
 }
 
+export enum FeedbackStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED'
+}
+
+export interface LandingPageConfig {
+  heroTitle: string;
+  heroSubtitle: string;
+  heroButtonPrimary: string;
+  heroButtonSecondary: string;
+  statsSectionTitle: string;
+  feedbackSectionTitle: string;
+  feedbackSectionSubtitle: string;
+  ctaTitle: string;
+  ctaSubtitle: string;
+  ctaButtonText: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -50,6 +69,17 @@ export interface DonationRecord {
   units: number;
   status: DonationStatus;
   notes?: string;
+}
+
+export interface DonationFeedback {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  message: string;
+  status: FeedbackStatus;
+  isVisible: boolean; // Added for landing page control
+  timestamp: string;
 }
 
 export interface ChatMessage {
@@ -96,6 +126,9 @@ export interface RolePermissions {
     logs?: boolean;
     directoryPermissions?: boolean;
     supportCenter?: boolean;
+    feedback?: boolean;
+    approveFeedback?: boolean;
+    landingSettings?: boolean;
   };
   rules: {
     canEditProfile: boolean;
@@ -103,8 +136,9 @@ export interface RolePermissions {
     canRequestDonation: boolean;
     canPerformAction?: boolean;
     canLogDonation?: boolean;
-    canUseMessenger?: boolean; // New Permission
-    canUseSystemSupport?: boolean; // New Permission
+    canLogDonationForOthers?: boolean;
+    canUseMessenger?: boolean;
+    canUseSystemSupport?: boolean;
   };
 }
 

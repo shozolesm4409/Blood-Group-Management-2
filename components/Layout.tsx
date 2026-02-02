@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +16,10 @@ import {
   Users,
   Trash2,
   Bell,
-  LifeBuoy
+  LifeBuoy,
+  MessageSquareQuote,
+  CheckCircle2,
+  Monitor
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -57,7 +61,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const NavItem = ({ to, icon: Icon, label, badge }: { to: string, icon: any, label: string, badge?: number }) => (
@@ -65,7 +69,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       to={to}
       onClick={() => setIsMobileMenuOpen(false)}
       className={clsx(
-        "flex items-center justify-between px-2 py-1 rounded-l transition-all group",
+        "flex items-center justify-between px-2 py-2 rounded-l transition-all group",
         location.pathname === to 
           ? "bg-red-50 text-red-600 font-bold shadow-sm" 
           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
@@ -88,12 +92,10 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const currentRolePerms: RolePermissions | null = perms ? (
     isAdmin ? {
-      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: true, supportCenter: true },
+      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true },
       rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true }
     } : (isEditor ? perms.editor : perms.user)
   ) : null;
-
-  const canSeeSupport = isAdmin || (isEditor && user?.hasSupportAccess) || (user?.role === UserRole.USER);
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -117,19 +119,20 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           </div>
 
           <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
-            {currentRolePerms?.sidebar.dashboard && <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />}
+            {currentRolePerms?.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
             {currentRolePerms?.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="My Profile" />}
             {currentRolePerms?.sidebar.donors && <NavItem to="/donors" icon={Search} label="Donor Search" />}
             {currentRolePerms?.sidebar.history && <NavItem to="/my-donations" icon={History} label="Donation History" />}
-            {canSeeSupport && currentRolePerms?.sidebar.supportCenter && (
-              <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={unreadMsgCount} />
-            )}
+            {currentRolePerms?.sidebar.supportCenter && <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={unreadMsgCount} />}
+            {currentRolePerms?.sidebar.feedback && <NavItem to="/feedback" icon={MessageSquareQuote} label="Experience Feedback" />}
             
             {(isAdmin || isEditor) && (
               <>
                 <div className="pt-6 pb-2 px-4">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Management</span>
                 </div>
+                {currentRolePerms?.sidebar.landingSettings && <NavItem to="/landing-settings" icon={Monitor} label="Landing Page" />}
+                {currentRolePerms?.sidebar.approveFeedback && <NavItem to="/approve-feedback" icon={CheckCircle2} label="Approve Feedback" />}
                 {currentRolePerms?.sidebar.users && <NavItem to="/users" icon={Users} label="User Management" badge={pendingUserCount} />}
                 {currentRolePerms?.sidebar.manageDonations && (
                   <NavItem to="/manage-donations" icon={Droplet} label="All Donations" badge={notificationCount} />
@@ -174,11 +177,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </div>
             <span className="font-black text-slate-900 tracking-tighter text-xl">BloodLink</span>
           </div>
-          <div className="flex items-center gap-3">
-             <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-slate-50 rounded-xl border border-slate-100">
-               <Menu size={24} className="text-slate-700" />
-             </button>
-          </div>
+          <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-slate-50 rounded-xl border border-slate-100">
+            <Menu size={24} className="text-slate-700" />
+          </button>
         </header>
 
         <div className="flex-1 overflow-auto p-1 lg:p-4">

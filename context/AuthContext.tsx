@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, AuthState } from '../types';
 import { auth } from '../services/firebase';
 import { getUserProfile, logoutUser } from '../services/api';
-// Standard modular SDK import for onAuthStateChanged
-import { onAuthStateChanged } from 'firebase/auth';
+// Changed to @firebase/auth to match other firebase imports
+import { onAuthStateChanged } from '@firebase/auth';
 
 interface AuthContextType extends AuthState {
   login: (user: User) => void;
@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
           }
         } catch (error) {
           console.error("Error fetching user profile:", error);
+          setState({ user: null, isAuthenticated: false, token: null });
         }
       } else {
         setState({ user: null, isAuthenticated: false, token: null });
@@ -49,13 +50,15 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   }, []);
 
   const login = (user: User) => {
-    // This is primarily used by the Login page to update local state immediately 
-    // after successful login promise, but onAuthStateChanged will handles the source of truth.
     setState(prev => ({ ...prev, user, isAuthenticated: true }));
   };
 
   const logout = async () => {
-    await logoutUser(state.user);
+    try {
+      await logoutUser(state.user);
+    } catch (e) {
+      console.error("Logout error:", e);
+    }
     setState({ user: null, isAuthenticated: false, token: null });
   };
 

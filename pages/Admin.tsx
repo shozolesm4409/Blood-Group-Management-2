@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -22,15 +23,185 @@ import {
   restoreRevokedPermission,
   restoreDeletedUser,
   restoreDeletedDonation,
+  getLandingConfig,
+  updateLandingConfig,
   ADMIN_EMAIL 
 } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Card, Badge, Button, Input, Select, ConfirmModal } from '../components/UI';
-import { DonationRecord, AuditLog, DonationStatus, User, UserRole, AppPermissions, BloodGroup, RevokedPermission } from '../types';
+import { DonationRecord, AuditLog, DonationStatus, User, UserRole, AppPermissions, BloodGroup, RevokedPermission, LandingPageConfig } from '../types';
+// Added Activity to the imports below to fix the "Cannot find name 'Activity'" error.
 import { 
-  Check, X, Edit2, Trash2, Key, Users, Layout as LayoutIcon, ShieldCheck, Clock, Archive, Droplet, CheckCircle, RotateCcw, Filter, Search, BellRing, ShieldAlert, ShieldCheck as ShieldIcon, Settings2
+  Check, X, Edit2, Trash2, Key, Users, Layout as LayoutIcon, ShieldCheck, Clock, Archive, Droplet, CheckCircle, RotateCcw, Filter, Search, BellRing, ShieldAlert, ShieldCheck as ShieldIcon, Settings2, Monitor, Save, RefreshCcw, Activity
 } from 'lucide-react';
 import clsx from 'clsx';
+
+export const LandingPageManagement = () => {
+  const { user: admin } = useAuth();
+  const [config, setConfig] = useState<LandingPageConfig>({
+    heroTitle: 'এক ফোঁটা রক্ত\nহাজারো জীবনের আশা',
+    heroSubtitle: 'রক্তদাতা ও প্রয়োজনের মাঝে সবচেয়ে দ্রুত ও নিরাপদ সেতু। আজই আমাদের কমিউনিটিতে যোগ দিন — একটি জীবন বাঁচানোর মহান সুযোগ নিন।',
+    heroButtonPrimary: 'রক্তদাতা হিসেবে নিবন্ধন',
+    heroButtonSecondary: 'রক্তের অনুরোধ করুন',
+    statsSectionTitle: 'আমাদের লাইভ পরিসংখ্যান',
+    feedbackSectionTitle: 'ডোনারদের বাস্তব অভিজ্ঞতা',
+    feedbackSectionSubtitle: 'সফল রক্তদাতাদের শেয়ার করা অনুপ্রেরণামূলক গল্পসমূহ',
+    ctaTitle: 'রক্তের জরুরি প্রয়োজন?',
+    ctaSubtitle: 'আমাদের শক্তিশালী ডিরেক্টরি ব্যবহার করে মুহূর্তের মধ্যে নিকটস্থ রক্তদাতাদের সাথে যোগাযোগ করুন।',
+    ctaButtonText: 'এখনই শুরু করুন'
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    getLandingConfig().then(data => {
+      if (data) setConfig(data);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleSave = async () => {
+    if (!admin) return;
+    setSaving(true);
+    try {
+      await updateLandingConfig(config, admin);
+      alert("Landing page synchronized with production successfully.");
+    } catch (e) {
+      alert("Sync failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetToDefaults = () => {
+    if (window.confirm("Restore standard marketing copy?")) {
+      setConfig({
+        heroTitle: 'এক ফোঁটা রক্ত\nহাজারো জীবনের আশা',
+        heroSubtitle: 'রক্তদাতা ও প্রয়োজনের মাঝে সবচেয়ে দ্রুত ও নিরাপদ সেতু। আজই আমাদের কমিউনিটিতে যোগ দিন — একটি জীবন বাঁচানোর মহান সুযোগ নিন।',
+        heroButtonPrimary: 'রক্তদাতা হিসেবে নিবন্ধন',
+        heroButtonSecondary: 'রক্তের অনুরোধ করুন',
+        statsSectionTitle: 'আমাদের লাইভ পরিসংখ্যান',
+        feedbackSectionTitle: 'ডোনারদের বাস্তব অভিজ্ঞতা',
+        feedbackSectionSubtitle: 'সফল রক্তদাতাদের শেয়ার করা অনুপ্রেরণামূলক গল্পসমূহ',
+        ctaTitle: 'রক্তের জরুরি প্রয়োজন?',
+        ctaSubtitle: 'আমাদের শক্তিশালী ডিরেক্টরি ব্যবহার করে মুহূর্তের মধ্যে নিকটস্থ রক্তদাতাদের সাথে যোগাযোগ করুন।',
+        ctaButtonText: 'এখনই শুরু করুন'
+      });
+    }
+  };
+
+  if (loading) return <div className="p-10 text-center font-black text-slate-300">Loading Configuration...</div>;
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Landing Page Customizer</h1>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Manage public facing marketing content</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={resetToDefaults} className="flex items-center gap-2">
+            <RefreshCcw size={16} /> Reset
+          </Button>
+          <Button onClick={handleSave} isLoading={saving} className="flex items-center gap-2">
+            <Save size={16} /> Save Changes
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="space-y-6">
+          <Card className="p-6 border-0 shadow-lg">
+            <h3 className="font-black text-sm uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
+              <Monitor size={18} className="text-red-600" /> Hero Section (Top)
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Headline (Hero Title)</label>
+                <textarea 
+                  value={config.heroTitle}
+                  onChange={e => setConfig({...config, heroTitle: e.target.value})}
+                  className="w-full bg-slate-50 border-0 rounded-xl p-4 text-lg font-black focus:ring-2 focus:ring-red-500 transition-all outline-none min-h-[100px]"
+                />
+              </div>
+              <Input 
+                label="Subheadline (Subtitle)" 
+                value={config.heroSubtitle}
+                onChange={e => setConfig({...config, heroSubtitle: e.target.value})}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input 
+                  label="Primary Button Text" 
+                  value={config.heroButtonPrimary}
+                  onChange={e => setConfig({...config, heroButtonPrimary: e.target.value})}
+                />
+                <Input 
+                  label="Secondary Button Text" 
+                  value={config.heroButtonSecondary}
+                  onChange={e => setConfig({...config, heroButtonSecondary: e.target.value})}
+                />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 border-0 shadow-lg">
+            <h3 className="font-black text-sm uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
+              {/* Activity icon from lucide-react used here (line 148). */}
+              <Activity size={18} className="text-red-600" /> Sections Headers
+            </h3>
+            <div className="space-y-4">
+              <Input 
+                label="Statistics Section Header" 
+                value={config.statsSectionTitle}
+                onChange={e => setConfig({...config, statsSectionTitle: e.target.value})}
+              />
+              <Input 
+                label="Feedback Section Header" 
+                value={config.feedbackSectionTitle}
+                onChange={e => setConfig({...config, feedbackSectionTitle: e.target.value})}
+              />
+              <Input 
+                label="Feedback Section Subtitle" 
+                value={config.feedbackSectionSubtitle}
+                onChange={e => setConfig({...config, feedbackSectionSubtitle: e.target.value})}
+              />
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="p-6 border-0 shadow-lg">
+            <h3 className="font-black text-sm uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
+              <ShieldIcon size={18} className="text-red-600" /> Call to Action (Bottom)
+            </h3>
+            <div className="space-y-4">
+              <Input 
+                label="CTA Title" 
+                value={config.ctaTitle}
+                onChange={e => setConfig({...config, ctaTitle: e.target.value})}
+              />
+              <Input 
+                label="CTA Subtitle" 
+                value={config.ctaSubtitle}
+                onChange={e => setConfig({...config, ctaSubtitle: e.target.value})}
+              />
+              <Input 
+                label="CTA Button Label" 
+                value={config.ctaButtonText}
+                onChange={e => setConfig({...config, ctaButtonText: e.target.value})}
+              />
+            </div>
+          </Card>
+
+          <div className="p-8 bg-slate-900 rounded-[2rem] text-white">
+            <h4 className="font-black text-xs uppercase tracking-[0.3em] mb-4 text-red-500">Live Preview Hint</h4>
+            <p className="text-slate-400 text-sm leading-relaxed">Changes saved here will be reflected instantly for all visitors on the landing page. Use high-impact keywords to encourage registrations.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const UserManagement = () => {
   const { user: currentUser } = useAuth();
@@ -469,7 +640,7 @@ export const ManageDonations = () => {
                         <button onClick={() => handleStatusUpdate(d.id, DonationStatus.REJECTED)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><X size={18}/></button>
                       </>
                     )}
-                    <button onClick={() => handleDelete(d.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={18}/></button>
+                    <button onClick={() => handleDelete(d.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
                   </div>
                 </td>
               </tr>
