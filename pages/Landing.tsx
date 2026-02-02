@@ -150,27 +150,41 @@ export const Landing = () => {
 
             {feedbacks.length > 0 ? (
               <div className="animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {feedbacks.slice(0, 6).map(f => (
-                    <div key={f.id} className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-xl transition-all group">
-                      <div>
-                        <Quote className="text-red-100 group-hover:text-red-200 transition-colors mb-4" size={48} />
-                        <p className="text-slate-600 font-medium italic leading-relaxed mb-6">"{f.message}"</p>
-                      </div>
-                      <div className="flex items-center gap-4 pt-4 border-t border-slate-50">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                          {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" /> : <UserIcon className="p-2.5 text-slate-300" />}
-                        </div>
-                        <div>
-                          <p className="font-black text-slate-900 text-sm">{f.userName}</p>
-                          <div className="flex items-center gap-1.5 text-slate-400">
-                            <Calendar size={12} />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(f.timestamp).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 font-black uppercase tracking-widest">
+                        <tr>
+                          <th className="px-8 py-5">নাম</th>
+                          <th className="px-8 py-5">মতামত / মেসেজ</th>
+                          <th className="px-8 py-5 text-right">তারিখ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {feedbacks.slice(0, 5).map(f => (
+                          <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-8 py-6">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm flex-shrink-0">
+                                  {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3 text-slate-300 w-full h-full" />}
+                                </div>
+                                <span className="font-black text-slate-900 text-base">{f.userName}</span>
+                              </div>
+                            </td>
+                            <td className="px-8 py-6">
+                              <p className="text-slate-600 font-medium italic leading-relaxed">"{f.message}"</p>
+                            </td>
+                            <td className="px-8 py-6 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-2 text-slate-400 font-bold">
+                                <Calendar size={14} />
+                                <span>{new Date(f.timestamp).toLocaleDateString()}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 <div className="mt-12 text-center">
                   <Link to="/public-feedbacks" className="inline-flex items-center gap-2 text-red-600 font-black uppercase tracking-widest text-sm hover:gap-4 transition-all">

@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks } from '../services/api';
-import { Card, Button, Badge } from '../components/UI';
-import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, Quote, ArrowLeft, Activity } from 'lucide-react';
+import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, updateFeedbackMessage, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks } from '../services/api';
+import { Card, Button, Badge, Input } from '../components/UI';
+import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, Quote, ArrowLeft, Activity, Edit3 } from 'lucide-react';
 import { DonationFeedback, FeedbackStatus } from '../types';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
@@ -39,28 +39,42 @@ export const PublicFeedbackPage = () => {
         </div>
 
         {feedbacks.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
-            {feedbacks.map(f => (
-              <div key={f.id} className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-xl transition-all group">
-                <div>
-                  <Quote className="text-red-100 group-hover:text-red-200 transition-colors mb-4" size={48} />
-                  <p className="text-slate-600 font-medium italic leading-relaxed mb-6">"{f.message}"</p>
-                </div>
-                <div className="flex items-center gap-4 pt-4 border-t border-slate-50">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                    {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" /> : <UserIcon className="p-2.5 text-slate-300" />}
-                  </div>
-                  <div>
-                    <p className="font-black text-slate-900 text-sm">{f.userName}</p>
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                      <Calendar size={12} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{new Date(f.timestamp).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Card className="overflow-hidden border-0 shadow-xl bg-white rounded-[2rem]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 font-black uppercase tracking-widest">
+                  <tr>
+                    <th className="px-8 py-5">নাম</th>
+                    <th className="px-8 py-5">মতামত / মেসেজ</th>
+                    <th className="px-8 py-5 text-right">তারিখ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {feedbacks.map(f => (
+                    <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm flex-shrink-0">
+                            {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3 text-slate-300 w-full h-full" />}
+                          </div>
+                          <span className="font-black text-slate-900 text-base">{f.userName}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <p className="text-slate-600 font-medium italic leading-relaxed">"{f.message}"</p>
+                      </td>
+                      <td className="px-8 py-6 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2 text-slate-400 font-bold">
+                          <Calendar size={14} />
+                          <span>{new Date(f.timestamp).toLocaleDateString()}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         ) : loading ? (
           <div className="flex flex-col items-center justify-center py-32 opacity-30">
             <Activity className="animate-spin text-red-600 mb-4" size={48} />
@@ -147,6 +161,9 @@ export const FeedbackApprovalPage = () => {
   const [feedbacks, setFeedbacks] = useState<DonationFeedback[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('ALL');
+  const [editingFeedback, setEditingFeedback] = useState<DonationFeedback | null>(null);
+  const [editMessage, setEditMessage] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchFeedbacks = async () => {
     try {
@@ -188,6 +205,25 @@ export const FeedbackApprovalPage = () => {
       fetchFeedbacks();
     } catch (e) {
       alert("Deletion failed.");
+    }
+  };
+
+  const openEditModal = (feedback: DonationFeedback) => {
+    setEditingFeedback(feedback);
+    setEditMessage(feedback.message);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!user || !editingFeedback) return;
+    setSavingEdit(true);
+    try {
+      await updateFeedbackMessage(editingFeedback.id, editMessage, user);
+      setEditingFeedback(null);
+      fetchFeedbacks();
+    } catch (e) {
+      alert("Editing failed.");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -267,6 +303,9 @@ export const FeedbackApprovalPage = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
+                      <button onClick={() => openEditModal(f)} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-all" title="Edit Message">
+                        <Edit3 size={18} />
+                      </button>
                       {f.status === FeedbackStatus.PENDING && (
                         <>
                           <button onClick={() => handleStatusUpdate(f.id, FeedbackStatus.APPROVED)} className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-all" title="Approve">
@@ -297,6 +336,33 @@ export const FeedbackApprovalPage = () => {
           </div>
         )}
       </Card>
+
+      {editingFeedback && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <Card className="w-full max-w-lg p-8 shadow-2xl animate-in zoom-in-95 duration-200 bg-white border-0 rounded-[2rem]">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
+                <Edit3 size={24} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">ফিডব্যাক এডিট করুন</h3>
+            </div>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">মেসেজ (পরিবর্তন করুন)</label>
+                <textarea 
+                  value={editMessage}
+                  onChange={(e) => setEditMessage(e.target.value)}
+                  className="w-full bg-slate-50 border-0 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-blue-500 transition-all outline-none min-h-[150px] resize-none"
+                />
+              </div>
+              <div className="flex gap-4">
+                <Button onClick={handleSaveEdit} isLoading={savingEdit} className="flex-1 py-4 bg-blue-600 hover:bg-blue-700">পরিবর্তন সেভ করুন</Button>
+                <Button variant="outline" onClick={() => setEditingFeedback(null)} className="flex-1 py-4 text-slate-400 border-slate-100">বাতিল</Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

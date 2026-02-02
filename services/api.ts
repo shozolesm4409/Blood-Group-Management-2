@@ -147,20 +147,26 @@ export const updateFeedbackStatus = async (feedbackId: string, status: FeedbackS
   });
 };
 
+export const updateFeedbackMessage = async (feedbackId: string, message: string, admin: User) => {
+  await updateDoc(doc(db, COLLECTIONS.FEEDBACKS, feedbackId), { message });
+  await createLog('FEEDBACK_EDIT', admin.id, admin.name, `Edited feedback message for ${feedbackId}`, admin.avatar);
+};
+
 export const toggleFeedbackVisibility = async (feedbackId: string, isVisible: boolean) => {
   await updateDoc(doc(db, COLLECTIONS.FEEDBACKS, feedbackId), { isVisible });
 };
 
 export const subscribeToApprovedFeedbacks = (callback: (feedbacks: DonationFeedback[]) => void, onError?: (err: any) => void) => {
-  const q = query(
-    collection(db, COLLECTIONS.FEEDBACKS), 
-    where('status', '==', FeedbackStatus.APPROVED),
-    where('isVisible', '==', true),
-    orderBy('timestamp', 'desc')
-  );
+  // We use a simple collection query to avoid the requirement for a composite index (failed-precondition)
+  // Filtering and sorting are performed client-side.
+  const q = collection(db, COLLECTIONS.FEEDBACKS);
+  
   return onSnapshot(q, (snap) => {
-    const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DonationFeedback));
-    // Cache the JSON data for instant loading next time
+    const data = snap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() } as DonationFeedback))
+      .filter(f => f.status === FeedbackStatus.APPROVED && f.isVisible === true)
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+      
     localStorage.setItem(CACHE_KEYS.APPROVED_FEEDBACKS, JSON.stringify(data));
     callback(data);
   }, onError);
@@ -403,8 +409,15 @@ export const sendMessage = async (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'r
 };
 
 export const subscribeToRoomMessages = (roomId: string, callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
-  const q = query(collection(db, COLLECTIONS.MESSAGES), where('roomId', '==', roomId), orderBy('timestamp', 'asc'));
-  return onSnapshot(q, snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage))), onError);
+  // We use a simple collection reference and filter/sort client-side to avoid composite index requirements.
+  const q = collection(db, COLLECTIONS.MESSAGES);
+  return onSnapshot(q, snap => {
+    const data = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as ChatMessage))
+      .filter(m => m.roomId === roomId)
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    callback(data);
+  }, onError);
 };
 
 export const subscribeToAllSupportRooms = (callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
