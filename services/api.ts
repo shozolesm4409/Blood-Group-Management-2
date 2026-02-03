@@ -24,7 +24,7 @@ import {
 } from "@firebase/firestore";
 import { auth, db } from "./firebase";
 export { db };
-import { User, DonationRecord, AuditLog, UserRole, DonationStatus, BloodGroup, AppPermissions, ChatMessage, DonationFeedback, FeedbackStatus, RevokedPermission, LandingPageConfig } from '../types';
+import { User, DonationRecord, AuditLog, UserRole, DonationStatus, BloodGroup, AppPermissions, ChatMessage, DonationFeedback, FeedbackStatus, RevokedPermission, LandingPageConfig, Notice } from '../types';
 
 const COLLECTIONS = {
   USERS: 'users',
@@ -33,10 +33,13 @@ const COLLECTIONS = {
   DELETED_USERS: 'deleted_users',
   DELETED_DONATIONS: 'deleted_donations',
   DELETED_LOGS: 'deleted_logs',
+  DELETED_FEEDBACKS: 'deleted_feedbacks',
+  DELETED_NOTICES: 'deleted_notices',
   SETTINGS: 'settings',
   MESSAGES: 'messages',
   REVOKED_PERMISSIONS: 'revoked_permissions',
-  FEEDBACKS: 'feedbacks'
+  FEEDBACKS: 'feedbacks',
+  NOTICES: 'notices'
 };
 
 const CACHE_KEYS = {
@@ -60,7 +63,66 @@ const createLog = async (action: string, userId: string, userName: string, detai
   }
 };
 
-// Local Caching Helpers
+// --- Notices ---
+export const getNotices = async (): Promise<Notice[]> => {
+  const q = query(collection(db, COLLECTIONS.NOTICES), orderBy('timestamp', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notice));
+};
+
+export const addNotice = async (notice: Omit<Notice, 'id'>, admin: User) => {
+  await addDoc(collection(db, COLLECTIONS.NOTICES), notice);
+  await createLog('NOTICE_ADD', admin.id, admin.name, `Posted notice: ${notice.subject}`, admin.avatar);
+};
+
+export const updateNotice = async (id: string, updates: Partial<Notice>, admin: User) => {
+  await updateDoc(doc(db, COLLECTIONS.NOTICES, id), updates);
+  await createLog('NOTICE_UPDATE', admin.id, admin.name, `Updated notice: ${id}`, admin.avatar);
+};
+
+export const deleteNotice = async (id: string, admin: User) => {
+  const ref = doc(db, COLLECTIONS.NOTICES, id);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const batch = writeBatch(db);
+    const archiveRef = doc(db, COLLECTIONS.DELETED_NOTICES, id);
+    batch.set(archiveRef, {
+      ...snap.data(),
+      deletedAt: new Date().toISOString(),
+      deletedBy: admin.name
+    });
+    batch.delete(ref);
+    await batch.commit();
+    await createLog('NOTICE_DELETE', admin.id, admin.name, `Archived notice ${id}`, admin.avatar);
+  }
+};
+
+export const getDeletedNotices = async (): Promise<any[]> => {
+  const snap = await getDocs(collection(db, COLLECTIONS.DELETED_NOTICES));
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const restoreDeletedNotice = async (id: string, admin: User): Promise<void> => {
+  const deletedRef = doc(db, COLLECTIONS.DELETED_NOTICES, id);
+  const snap = await getDoc(deletedRef);
+  if (snap.exists()) {
+    const { deletedAt, deletedBy, ...data } = snap.data();
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.NOTICES, id), data);
+    batch.delete(deletedRef);
+    await batch.commit();
+    await createLog('NOTICE_RESTORE', admin.id, admin.name, `Restored notice ${id}`, admin.avatar);
+  }
+};
+
+export const subscribeToNotices = (callback: (notices: Notice[]) => void) => {
+  const q = query(collection(db, COLLECTIONS.NOTICES), orderBy('timestamp', 'desc'));
+  return onSnapshot(q, snap => {
+    callback(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notice)));
+  });
+};
+
+// --- Rest of API ---
 export const getCachedFeedbacks = (): DonationFeedback[] => {
   const cached = localStorage.getItem(CACHE_KEYS.APPROVED_FEEDBACKS);
   return cached ? JSON.parse(cached) : [];
@@ -130,8 +192,25 @@ export const submitFeedback = async (message: string, user: User) => {
 };
 
 export const deleteFeedback = async (feedbackId: string, admin: User) => {
-  await deleteDoc(doc(db, COLLECTIONS.FEEDBACKS, feedbackId));
-  await createLog('FEEDBACK_DELETE', admin.id, admin.name, `Deleted feedback ${feedbackId}`, admin.avatar);
+  const ref = doc(db, COLLECTIONS.FEEDBACKS, feedbackId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const batch = writeBatch(db);
+    const archiveRef = doc(db, COLLECTIONS.DELETED_FEEDBACKS, feedbackId);
+    batch.set(archiveRef, { 
+      ...snap.data(), 
+      deletedAt: new Date().toISOString(), 
+      deletedBy: admin.name 
+    });
+    batch.delete(ref);
+    await batch.commit();
+    await createLog('FEEDBACK_DELETE', admin.id, admin.name, `Archived feedback ${feedbackId}`, admin.avatar);
+  }
+};
+
+export const permanentlyDeleteArchivedFeedback = async (id: string, admin: User) => {
+  await deleteDoc(doc(db, COLLECTIONS.DELETED_FEEDBACKS, id));
+  await createLog('FEEDBACK_PERMANENT_DELETE', admin.id, admin.name, `Permanently removed feedback ${id} from archives.`, admin.avatar);
 };
 
 export const getAllFeedbacks = async (): Promise<DonationFeedback[]> => {
@@ -178,25 +257,36 @@ export const getLandingConfig = async (): Promise<LandingPageConfig | null> => {
 
 export const updateLandingConfig = async (config: LandingPageConfig, admin: User) => {
   await setDoc(doc(db, COLLECTIONS.SETTINGS, 'landing'), config);
-  await createLog('LANDING_CONFIG_UPDATE', admin.id, admin.name, 'Updated landing page configuration.', admin.avatar);
+  await createLog('PAGE_CONFIG_UPDATE', admin.id, admin.name, 'Updated Page Customizer configuration.', admin.avatar);
 };
 
 export const getAppPermissions = async (): Promise<AppPermissions> => {
   const local = localStorage.getItem('bloodlink_permissions_override');
   if (local) return JSON.parse(local) as AppPermissions;
 
+  const DEFAULT_PERMS: AppPermissions = {
+    user: { 
+      sidebar: { dashboard: true, profile: true, history: true, donors: true, directoryPermissions: false, supportCenter: false, feedback: true, approveFeedback: false, myNotice: true }, 
+      rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canUseMessenger: true, canUseSystemSupport: true, canPostNotice: false }
+    },
+    editor: { 
+      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: false, supportCenter: false, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true }, 
+      rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canUseMessenger: true, canUseSystemSupport: true, canPostNotice: true }
+    }
+  };
+
   try {
     const docRef = doc(db, COLLECTIONS.SETTINGS, 'permissions');
     const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? docSnap.data() as AppPermissions : {
-      user: { sidebar: { dashboard: true, profile: true, history: true, donors: true, directoryPermissions: false, supportCenter: true, feedback: true, approveFeedback: false }, rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canUseMessenger: true, canUseSystemSupport: true }},
-      editor: { sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: false, supportCenter: false, feedback: true, approveFeedback: true, landingSettings: true }, rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canUseMessenger: true, canUseSystemSupport: true }}
-    };
+    if (docSnap.exists()) {
+      const data = docSnap.data() as AppPermissions;
+      if (data.user?.sidebar) data.user.sidebar.myNotice = data.user.sidebar.myNotice ?? true;
+      if (data.editor?.sidebar) data.editor.sidebar.myNotice = data.editor.sidebar.myNotice ?? true;
+      return data;
+    }
+    return DEFAULT_PERMS;
   } catch {
-    return {
-      user: { sidebar: { dashboard: true, profile: true, history: true, donors: true, directoryPermissions: false, supportCenter: true, feedback: true, approveFeedback: false }, rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canUseMessenger: true, canUseSystemSupport: true }},
-      editor: { sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: false, supportCenter: false, feedback: true, approveFeedback: true, landingSettings: true }, rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canUseMessenger: true, canUseSystemSupport: true }}
-    };
+    return DEFAULT_PERMS;
   }
 };
 
@@ -208,16 +298,17 @@ export const login = async (email: string, password: string): Promise<User> => {
   const isAdminEmail = normalizedEmail === ADMIN_EMAIL;
 
   if (!userDoc.exists()) {
-    const newUser: User = { id: uid, role: isAdminEmail ? UserRole.ADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isAdminEmail, hasSupportAccess: true, hasFeedbackAccess: isAdminEmail };
+    const newUser: User = { id: uid, role: isAdminEmail ? UserRole.ADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isAdminEmail, hasSupportAccess: isAdminEmail, hasFeedbackAccess: isAdminEmail };
     await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
     return newUser;
   }
   const data = userDoc.data() as User;
   if (isAdminEmail && data.role !== UserRole.ADMIN) {
-    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true, hasFeedbackAccess: true });
+    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true, hasFeedbackAccess: true, hasSupportAccess: true });
     data.role = UserRole.ADMIN;
     data.hasDirectoryAccess = true;
     data.hasFeedbackAccess = true;
+    data.hasSupportAccess = true;
   }
   await createLog('LOGIN', uid, data.name, 'Authenticated successfully.', data.avatar);
   return data;
@@ -228,7 +319,7 @@ export const register = async (data: any): Promise<User> => {
   const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
   const uid = userCredential.user.uid;
   const isAdmin = normalizedEmail === ADMIN_EMAIL;
-  const newUser: User = { id: uid, role: isAdmin ? UserRole.ADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isAdmin, hasSupportAccess: true, hasFeedbackAccess: isAdmin };
+  const newUser: User = { id: uid, role: isAdmin ? UserRole.ADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isAdmin, hasSupportAccess: isAdmin, hasFeedbackAccess: isAdmin };
   await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
   await createLog('REGISTER', uid, data.name, 'Profile initialized.', newUser.avatar);
   return newUser;
@@ -283,8 +374,14 @@ export const deleteUserRecord = async (userId: string, admin: User): Promise<voi
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
     const userData = userSnap.data() as User;
-    await setDoc(doc(db, COLLECTIONS.DELETED_USERS, userId), { ...userData, deletedAt: new Date().toISOString(), deletedBy: admin.name });
-    await deleteDoc(userRef);
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.DELETED_USERS, userId), { 
+      ...userData, 
+      deletedAt: new Date().toISOString(), 
+      deletedBy: admin.name 
+    });
+    batch.delete(userRef);
+    await batch.commit();
     await createLog('USER_DELETE', admin.id, admin.name, `Account Purged: ${userData.name}`, admin.avatar);
   }
 };
@@ -339,7 +436,11 @@ export const subscribeToAllIncomingMessages = (userId: string, callback: (msgs: 
 };
 
 export const adminForceChangePassword = async (userId: string, newPass: string, admin: User) => {
+  // In a real Firebase setup, this would be a cloud function
+  // For this prototype, we update a flag or log the administrative action
   await createLog('ADMIN_FORCE_PASSWORD_CHANGE', admin.id, admin.name, `Administrative PIN reset for user ${userId}.`, admin.avatar);
+  // Simulate the update by adding a marker in Firestore
+  await updateDoc(doc(db, COLLECTIONS.USERS, userId), { lastPasswordReset: new Date().toISOString() });
 };
 
 export const getDeletedUsers = async (): Promise<any[]> => {
@@ -357,13 +458,33 @@ export const getDeletedLogs = async (): Promise<any[]> => {
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
+export const getDeletedFeedbacks = async (): Promise<any[]> => {
+  const snap = await getDocs(collection(db, COLLECTIONS.DELETED_FEEDBACKS));
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
 export const restoreDeletedLog = async (logId: string, admin: User): Promise<void> => {
   const deletedRef = doc(db, COLLECTIONS.DELETED_LOGS, logId);
   const snap = await getDoc(deletedRef);
   if (snap.exists()) {
     const { deletedAt, deletedBy, ...logData } = snap.data();
-    await setDoc(doc(db, COLLECTIONS.LOGS, logId), logData);
-    await deleteDoc(deletedRef);
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.LOGS, logId), logData);
+    batch.delete(deletedRef);
+    await batch.commit();
+  }
+};
+
+export const restoreDeletedFeedback = async (id: string, admin: User): Promise<void> => {
+  const deletedRef = doc(db, COLLECTIONS.DELETED_FEEDBACKS, id);
+  const snap = await getDoc(deletedRef);
+  if (snap.exists()) {
+    const { deletedAt, deletedBy, ...data } = snap.data();
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.FEEDBACKS, id), data);
+    batch.delete(deletedRef);
+    await batch.commit();
+    await createLog('FEEDBACK_RESTORE', admin.id, admin.name, `Restored feedback ${id}`, admin.avatar);
   }
 };
 
@@ -371,8 +492,14 @@ export const deleteDonationRecord = async (id: string, admin: User): Promise<voi
   const ref = doc(db, COLLECTIONS.DONATIONS, id);
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    await setDoc(doc(db, COLLECTIONS.DELETED_DONATIONS, id), { ...snap.data(), deletedAt: new Date().toISOString(), deletedBy: admin.name });
-    await deleteDoc(ref);
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.DELETED_DONATIONS, id), { 
+      ...snap.data(), 
+      deletedAt: new Date().toISOString(), 
+      deletedBy: admin.name 
+    });
+    batch.delete(ref);
+    await batch.commit();
   }
 };
 
@@ -380,8 +507,14 @@ export const deleteLogEntry = async (id: string, admin: User): Promise<void> => 
   const ref = doc(db, COLLECTIONS.LOGS, id);
   const snap = await getDoc(ref);
   if (snap.exists()) {
-    await setDoc(doc(db, COLLECTIONS.DELETED_LOGS, id), { ...snap.data(), deletedAt: new Date().toISOString(), deletedBy: admin.name });
-    await deleteDoc(ref);
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.DELETED_LOGS, id), { 
+      ...snap.data(), 
+      deletedAt: new Date().toISOString(), 
+      deletedBy: admin.name 
+    });
+    batch.delete(ref);
+    await batch.commit();
   }
 };
 
@@ -408,8 +541,10 @@ export const restoreDeletedUser = async (userId: string, admin: User): Promise<v
   const snap = await getDoc(deletedRef);
   if (snap.exists()) {
     const { deletedAt, deletedBy, ...userData } = snap.data();
-    await setDoc(doc(db, COLLECTIONS.USERS, userId), userData);
-    await deleteDoc(deletedRef);
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.USERS, userId), userData);
+    batch.delete(deletedRef);
+    await batch.commit();
   }
 };
 
@@ -418,8 +553,10 @@ export const restoreDeletedDonation = async (id: string, admin: User): Promise<v
   const snap = await getDoc(deletedRef);
   if (snap.exists()) {
     const { deletedAt, deletedBy, ...data } = snap.data();
-    await setDoc(doc(db, COLLECTIONS.DONATIONS, id), data);
-    await deleteDoc(deletedRef);
+    const batch = writeBatch(db);
+    batch.set(doc(db, COLLECTIONS.DONATIONS, id), data);
+    batch.delete(deletedRef);
+    await batch.commit();
   }
 };
 

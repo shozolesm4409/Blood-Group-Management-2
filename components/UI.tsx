@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import clsx from 'clsx';
-import { Loader2, X, AlertTriangle } from 'lucide-react';
+import { Loader2, X, AlertTriangle, CheckCircle2, Info, AlertCircle } from 'lucide-react';
 
 export const Card: React.FC<{ children?: React.ReactNode; className?: string }> = ({ children, className }) => (
   <div className={clsx("bg-white rounded-[.5rem] border border-slate-200 shadow-sm", className)}>
@@ -72,7 +72,8 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
   )
 );
 
-export const Badge = ({ children, color = 'blue', className }: { children?: React.ReactNode, color?: 'blue' | 'green' | 'red' | 'yellow' | 'gray', className?: string }) => {
+// Fix: Converted to React.FC to handle internal props like key correctly in TS
+export const Badge: React.FC<{ children?: React.ReactNode, color?: 'blue' | 'green' | 'red' | 'yellow' | 'gray', className?: string }> = ({ children, color = 'blue', className }) => {
   const colors = {
     blue: "bg-blue-100 text-blue-700",
     green: "bg-green-100 text-green-700",
@@ -128,4 +129,67 @@ export const ConfirmModal: React.FC<{
       </Card>
     </div>
   );
+};
+
+// Global Toast System (Sweet Alert alternative)
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+export const Toast: React.FC<{
+  message: string;
+  type: ToastType;
+  onClose: () => void;
+  isVisible: boolean;
+}> = ({ message, type, onClose, isVisible }) => {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(onClose, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onClose]);
+
+  if (!isVisible) return null;
+
+  const styles = {
+    success: "bg-white border-green-500 text-green-700",
+    error: "bg-white border-red-500 text-red-700",
+    info: "bg-white border-blue-500 text-blue-700",
+    warning: "bg-white border-yellow-500 text-yellow-700"
+  };
+
+  const Icons = {
+    success: <CheckCircle2 className="text-green-500" />,
+    error: <AlertCircle className="text-red-500" />,
+    info: <Info className="text-blue-500" />,
+    warning: <AlertTriangle className="text-yellow-500" />
+  };
+
+  return (
+    <div className="fixed top-6 right-6 z-[200] animate-in slide-in-from-right-10 duration-300">
+      <Card className={clsx("flex items-center gap-4 p-4 pr-6 border-l-4 shadow-2xl rounded-2xl", styles[type])}>
+        <div className="p-2 bg-slate-50 rounded-full">{Icons[type]}</div>
+        <p className="text-sm font-black tracking-tight">{message}</p>
+        <button onClick={onClose} className="p-1 text-slate-300 hover:text-slate-500 transition-colors ml-4">
+          <X size={16} />
+        </button>
+      </Card>
+    </div>
+  );
+};
+
+export const useToast = () => {
+  const [state, setState] = useState<{ message: string, type: ToastType, isVisible: boolean }>({
+    message: '',
+    type: 'success',
+    isVisible: false
+  });
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setState({ message, type, isVisible: true });
+  };
+
+  const hideToast = () => {
+    setState(prev => ({ ...prev, isVisible: false }));
+  };
+
+  return { toastState: state, showToast, hideToast };
 };

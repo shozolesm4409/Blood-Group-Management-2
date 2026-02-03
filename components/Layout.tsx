@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../AuthContext';
 import { UserRole, AppPermissions, RolePermissions, DonationStatus } from '../types';
-import { getAppPermissions, getUsers, getDonations, subscribeToAllIncomingMessages } from '../services/api';
+import { getAppPermissions, getUsers, getDonations, subscribeToAllIncomingMessages, getAllFeedbacks } from '../services/api';
 import { 
   LayoutDashboard, 
   UserCircle, 
@@ -19,7 +19,8 @@ import {
   LifeBuoy,
   MessageSquareQuote,
   CheckCircle2,
-  Monitor
+  Monitor,
+  Megaphone
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -32,6 +33,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [notificationCount, setNotificationCount] = useState(0);
   const [pendingUserCount, setPendingUserCount] = useState(0);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [pendingFeedbackCount, setPendingFeedbackCount] = useState(0);
 
   useEffect(() => {
     getAppPermissions().then(setPerms);
@@ -39,11 +41,14 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     if (user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR) {
       const fetchCounts = async () => {
         try {
-          const [users, donations] = await Promise.all([getUsers(), getDonations()]);
+          const [users, donations, feedbacks] = await Promise.all([getUsers(), getDonations(), getAllFeedbacks()]);
           const pendingUsers = users.filter(u => u.directoryAccessRequested || u.supportAccessRequested || u.feedbackAccessRequested).length;
           const pendingDonations = donations.filter(d => d.status === DonationStatus.PENDING).length;
+          const pendingFeedbacks = feedbacks.filter(f => f.status === 'PENDING').length;
+          
           setNotificationCount(pendingDonations);
           setPendingUserCount(pendingUsers);
+          setPendingFeedbackCount(pendingFeedbacks);
         } catch (e) {
           console.error("Failed to fetch notification counts", e);
         }
@@ -92,12 +97,17 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const isAdmin = user?.role === UserRole.ADMIN;
   const isEditor = user?.role === UserRole.EDITOR;
 
-  const currentRolePerms: RolePermissions | null = perms ? (
+  // Optimized sidebar permissions with robust defaults for USER role
+  const currentRolePerms: RolePermissions = perms ? (
     isAdmin ? {
-      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true },
-      rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true }
+      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true },
+      rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canPostNotice: true }
     } : (isEditor ? perms.editor : perms.user)
-  ) : null;
+  ) : {
+    // Immediate fallback for stability while perms load
+    sidebar: { dashboard: true, profile: true, history: true, donors: true, feedback: true, myNotice: true },
+    rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -121,13 +131,15 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           </div>
 
           <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
-            {currentRolePerms?.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
-            {currentRolePerms?.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="My Profile" />}
-            {/* Always visible as per request */}
+            {currentRolePerms.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
+            {currentRolePerms.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="My Profile" />}
             <NavItem to="/donors" icon={Search} label="Donor Search" />
-            {currentRolePerms?.sidebar.history && <NavItem to="/my-donations" icon={History} label="Donation History" />}
-            {currentRolePerms?.sidebar.supportCenter && <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={unreadMsgCount} />}
-            {/* Always visible as per request */}
+            
+            {/* My Notice is placed prominently for all users */}
+            {currentRolePerms.sidebar.myNotice && <NavItem to="/notices" icon={Megaphone} label="My Notice" />}
+            
+            {currentRolePerms.sidebar.history && <NavItem to="/my-donations" icon={History} label="Donation History" />}
+            {currentRolePerms.sidebar.supportCenter && <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={unreadMsgCount} />}
             <NavItem to="/feedback" icon={MessageSquareQuote} label="Experience Feedback" />
             
             {(isAdmin || isEditor) && (
@@ -135,19 +147,21 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 <div className="pt-6 pb-2 px-4">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Management</span>
                 </div>
-                {currentRolePerms?.sidebar.landingSettings && <NavItem to="/landing-settings" icon={Monitor} label="Landing Page" />}
-                {currentRolePerms?.sidebar.approveFeedback && <NavItem to="/approve-feedback" icon={CheckCircle2} label="Approve Feedback" />}
-                {currentRolePerms?.sidebar.users && <NavItem to="/users" icon={Users} label="User Management" badge={pendingUserCount} />}
-                {currentRolePerms?.sidebar.manageDonations && (
+                {currentRolePerms.sidebar.landingSettings && <NavItem to="/landing-settings" icon={Monitor} label="Page Customizer" />}
+                {currentRolePerms.sidebar.approveFeedback && (
+                  <NavItem to="/approve-feedback" icon={CheckCircle2} label="Approve Feedback" badge={pendingFeedbackCount} />
+                )}
+                {currentRolePerms.sidebar.users && <NavItem to="/users" icon={Users} label="User Management" badge={pendingUserCount} />}
+                {currentRolePerms.sidebar.manageDonations && (
                   <NavItem to="/manage-donations" icon={Droplet} label="All Donations" badge={notificationCount} />
                 )}
                 {isAdmin && (
                   <>
-                    <NavItem to="/notifications" icon={Bell} label="Notification Center" badge={pendingUserCount} />
+                    <NavItem to="/notifications" icon={Bell} label="Notification Center" badge={pendingUserCount + pendingFeedbackCount} />
                     <NavItem to="/deleted-users" icon={Trash2} label="System Archives" />
                   </>
                 )}
-                {currentRolePerms?.sidebar.logs && <NavItem to="/logs" icon={FileText} label="Activity Logs" />}
+                {currentRolePerms.sidebar.logs && <NavItem to="/logs" icon={FileText} label="Activity Logs" />}
               </>
             )}
           </nav>

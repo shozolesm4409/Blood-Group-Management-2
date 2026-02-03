@@ -28,6 +28,22 @@ export enum FeedbackStatus {
   REJECTED = 'REJECTED'
 }
 
+export interface NavLink {
+  label: string;
+  path: string;
+}
+
+export interface Notice {
+  id: string;
+  subject: string;
+  details: string; // HTML-ish string for styling
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  timestamp: string;
+  mentions?: string[]; // Array of mentioned user IDs
+}
+
 export interface LandingPageConfig {
   heroTitle: string;
   heroSubtitle: string;
@@ -39,6 +55,29 @@ export interface LandingPageConfig {
   ctaTitle: string;
   ctaSubtitle: string;
   ctaButtonText: string;
+  
+  // Navigation
+  navbarLinks?: NavLink[];
+  footerLinks?: NavLink[];
+  footerCopyright?: string;
+  footerTagline?: string;
+  
+  // Auth Styles
+  loginStyles?: { padding: number; margin: number };
+  signupStyles?: { padding: number; margin: number };
+
+  // Content Customization
+  loginHeadline?: string;       
+  loginDescription?: string;    
+  loginTitle?: string;          
+  loginSubtitle?: string;       
+  loginButtonLabel?: string;    
+
+  registerHeadline?: string;    
+  registerDescription?: string; 
+  registerTitle?: string;       
+  registerSubtitle?: string;    
+  registerButtonLabel?: string; 
 }
 
 export interface User {
@@ -80,7 +119,7 @@ export interface DonationFeedback {
   userAvatar?: string;
   message: string;
   status: FeedbackStatus;
-  isVisible: boolean; // Added for landing page control
+  isVisible: boolean;
   timestamp: string;
 }
 
@@ -131,6 +170,7 @@ export interface RolePermissions {
     feedback?: boolean;
     approveFeedback?: boolean;
     landingSettings?: boolean;
+    myNotice?: boolean;
   };
   rules: {
     canEditProfile: boolean;
@@ -141,6 +181,7 @@ export interface RolePermissions {
     canLogDonationForOthers?: boolean;
     canUseMessenger?: boolean;
     canUseSystemSupport?: boolean;
+    canPostNotice?: boolean;
   };
 }
 

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from './AuthContext';
 import { Layout } from './components/Layout';
 import { Login, Register } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
@@ -11,6 +11,7 @@ import { ManageDonations, DonorSearch, SystemLogs, UserManagement, DeletedRecord
 import { MyDonations } from './pages/MyDonations';
 import { SupportCenter } from './pages/SupportCenter';
 import { DonationFeedbackPage, FeedbackApprovalPage, PublicFeedbackPage } from './pages/Feedback';
+import { MyNotice } from './pages/MyNotice';
 import { UserRole } from './types';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children?: React.ReactNode, allowedRoles?: UserRole[] }) => {
@@ -45,6 +46,7 @@ const App = () => {
           <Route path="/donors" element={<ProtectedRoute><DonorSearch /></ProtectedRoute>} />
           <Route path="/support" element={<ProtectedRoute><SupportCenter /></ProtectedRoute>} />
           <Route path="/feedback" element={<ProtectedRoute><DonationFeedbackPage /></ProtectedRoute>} />
+          <Route path="/notices" element={<ProtectedRoute><MyNotice /></ProtectedRoute>} />
 
           <Route path="/users" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.EDITOR]}><UserManagement /></ProtectedRoute>} />
           <Route path="/landing-settings" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.EDITOR]}><LandingPageManagement /></ProtectedRoute>} />
