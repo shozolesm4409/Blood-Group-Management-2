@@ -56,6 +56,8 @@ export interface User {
   directoryAccessRequested?: boolean;
   hasSupportAccess?: boolean;
   supportAccessRequested?: boolean;
+  hasFeedbackAccess?: boolean;
+  feedbackAccessRequested?: boolean;
 }
 
 export interface DonationRecord {
@@ -110,7 +112,7 @@ export interface RevokedPermission {
   userId: string;
   userName: string;
   userAvatar?: string;
-  type: 'DIRECTORY' | 'SUPPORT';
+  type: 'DIRECTORY' | 'SUPPORT' | 'FEEDBACK';
   revokedAt: string;
   revokedBy: string;
 }

@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, updateFeedbackMessage, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks } from '../services/api';
+import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, updateFeedbackMessage, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks, requestFeedbackAccess } from '../services/api';
 import { Card, Button, Badge, Input } from '../components/UI';
-import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, Quote, ArrowLeft, Activity, Edit3 } from 'lucide-react';
-import { DonationFeedback, FeedbackStatus } from '../types';
+import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, Quote, ArrowLeft, Activity, Edit3, Lock, ShieldAlert } from 'lucide-react';
+import { DonationFeedback, FeedbackStatus, UserRole } from '../types';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -93,10 +93,11 @@ export const PublicFeedbackPage = () => {
 };
 
 export const DonationFeedbackPage = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +113,55 @@ export const DonationFeedbackPage = () => {
       setLoading(false);
     }
   };
+
+  const handleRequestAccess = async () => {
+    if (!user) return;
+    setIsRequesting(true);
+    try {
+      await requestFeedbackAccess(user);
+      updateUser({ ...user, feedbackAccessRequested: true });
+      alert("Access request sent to administration.");
+    } catch (e) {
+      alert("Request failed.");
+    } finally {
+      setIsRequesting(false);
+    }
+  };
+
+  const hasAccess = user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR || user?.hasFeedbackAccess;
+
+  if (!hasAccess) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4">
+        <Card className="p-12 text-center space-y-8 border-0 shadow-2xl bg-white rounded-[3rem]">
+          <div className="w-24 h-24 bg-red-50 text-red-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+            <Lock size={48} />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Access Restricted</h2>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              আপনি এখনো ফিডব্যাক সেকশনে এক্সেস পাননি। রক্তদানের অভিজ্ঞতা শেয়ার করতে বা অন্যদের অভিজ্ঞতা দেখতে এক্সেস রিকোয়েস্ট পাঠান।
+            </p>
+          </div>
+          
+          {user?.feedbackAccessRequested ? (
+            <div className="p-6 bg-yellow-50 text-yellow-700 rounded-2xl border border-yellow-100 flex items-center justify-center gap-3">
+              <ShieldAlert size={20} />
+              <span className="font-black text-sm uppercase tracking-widest">Request Pending Approval</span>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleRequestAccess} 
+              isLoading={isRequesting}
+              className="w-full py-5 rounded-2xl text-lg"
+            >
+              Request Access Now
+            </Button>
+          )}
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">

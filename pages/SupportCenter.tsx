@@ -115,7 +115,6 @@ export const SupportCenter = () => {
     }
   };
 
-  // Fixed React.Form type error: changed to React.FormEvent<HTMLFormElement>
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user || !newMessage.trim() || isSending) return;
@@ -271,7 +270,8 @@ export const SupportCenter = () => {
     );
   }
 
-  const unreadTotal = Object.values(unreadCounts).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
+  // @fix: Added explicit types to reduce callback to avoid unknown type error
+  const unreadTotal = Object.values(unreadCounts).reduce((a: number, b: number) => a + b, 0);
 
   const handleOpenMessenger = () => {
     if (canUseMessenger) setActiveView('user-list');

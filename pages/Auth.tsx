@@ -1,215 +1,288 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { login as apiLogin, register as apiRegister, resetPassword, ADMIN_EMAIL } from '../services/api';
-import { Card, Input, Button, Select } from '../components/UI';
-import { Droplet, AlertCircle } from 'lucide-react';
+import { login as apiLogin, register as apiRegister, resetPassword } from '../services/api';
+import { Button } from '../components/UI';
+import { Droplet, AlertCircle, ArrowLeft, User, Lock, Mail, Phone, MapPin } from 'lucide-react';
 import { BLOOD_GROUPS } from '../constants';
+
+const AuthLayout = ({ children, title, subtitle, headline, description, isLogin }: any) => {
+  return (
+    <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center p-3 lg:p-6 font-sans selection:bg-red-100">
+      {/* Fixed Top-Center Return to Homepage Button */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+        <Link 
+          to="/" 
+          className="inline-flex items-center gap-2 bg-white px-5 py-2.5 rounded-full shadow-lg text-slate-700 font-black text-[10px] lg:text-xs uppercase tracking-[0.2em] border border-white hover:bg-slate-50 hover:text-red-600 hover:scale-105 transition-all group"
+        >
+          <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> 
+          হোমপেজে ফিরুন
+        </Link>
+      </div>
+
+      <div className="w-full max-w-5xl bg-white rounded-[2rem] shadow-[0_20px_70px_-15px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col lg:flex-row h-auto relative border border-slate-100 mt-14">
+        
+        {/* Left Branding Section (Red Theme) */}
+        <div className="lg:w-[38%] bg-gradient-to-br from-[#c1121f] to-[#780116] relative overflow-hidden flex flex-col justify-center p-8 lg:p-10 text-white order-2 lg:order-1">
+          
+          {/* Advanced Red Lighting Blobs */}
+          <div className="absolute top-[-5%] left-[-5%] w-[250px] h-[250px] bg-red-400 rounded-full mix-blend-screen filter blur-[80px] opacity-20 animate-pulse"></div>
+          <div className="absolute bottom-[5%] right-[-10%] w-[200px] h-[200px] bg-orange-400 rounded-full mix-blend-screen filter blur-[100px] opacity-15"></div>
+          
+          <div className="relative z-10 space-y-4">
+            <div className="w-12 h-12 lg:w-14 lg:h-14 bg-white/10 backdrop-blur-2xl rounded-2xl flex items-center justify-center mb-2 border border-white/20 shadow-inner">
+              <Droplet className="text-white fill-current" size={28} />
+            </div>
+            
+            <div className="space-y-1">
+              <h2 className="text-3xl lg:text-5xl font-black tracking-tighter uppercase leading-none drop-shadow-xl">
+                {headline || "WELCOME"}
+              </h2>
+              <h3 className="text-sm lg:text-base font-bold opacity-90 uppercase tracking-[0.15em] text-red-100">
+                BloodLink Manager
+              </h3>
+            </div>
+            
+            <div className="w-12 h-1 bg-white/20 rounded-full"></div>
+            
+            <p className="text-red-50 text-xs lg:text-sm leading-relaxed max-w-sm font-medium opacity-80">
+              {description || "রক্তের প্রতিটি ফোঁটা একটি জীবনের সম্ভাবনা। আজই আমাদের কমিউনিটিতে যোগ দিন এবং জীবন বাঁচানোর মহান উদ্যোগে অংশ নিন।"}
+            </p>
+          </div>
+
+          <div className="absolute bottom-[-40px] left-[-20px] w-52 h-52 rounded-full bg-gradient-to-tr from-[#660000] to-transparent opacity-40"></div>
+        </div>
+
+        {/* Right Form Section */}
+        <div className="lg:w-[62%] p-6 lg:p-10 flex flex-col justify-center bg-white order-1 lg:order-2 relative">
+          <div className="max-w-md mx-auto w-full relative z-10">
+            <div className="mb-4 lg:mb-6">
+              <h1 className="text-3xl lg:text-4xl font-black text-slate-900 mb-1 tracking-tight">{title}</h1>
+              <p className="text-slate-400 font-bold text-[9px] lg:text-[10px] uppercase tracking-[0.2em] opacity-60">{subtitle}</p>
+            </div>
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CustomInput = ({ icon: Icon, type = "text", name, placeholder, value, onChange, showPasswordToggle, onToggleShow }: any) => (
+  <div className="mb-3 lg:mb-4">
+    <div className="relative group">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-red-600 transition-colors pointer-events-none">
+        <Icon size={18} />
+      </div>
+      <input
+        type={type}
+        name={name}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        required
+        className="w-full pl-11 pr-16 py-3.5 lg:py-4 bg-[#f8fafc] border-2 border-transparent rounded-[1.25rem] text-slate-900 font-bold text-sm lg:text-base focus:bg-white focus:border-red-600/30 outline-none transition-all placeholder:text-slate-300 placeholder:font-medium shadow-sm"
+      />
+      {showPasswordToggle && (
+        <button
+          type="button"
+          onClick={onToggleShow}
+          className="absolute right-5 top-1/2 -translate-y-1/2 text-xs lg:text-sm font-black uppercase tracking-widest text-red-600 hover:text-red-800 transition-colors"
+        >
+          {type === 'password' ? 'SHOW' : 'HIDE'}
+        </button>
+      )}
+    </div>
+  </div>
+);
 
 export const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [email, setEmail] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setSuccess('');
-    
     const formData = new FormData(e.currentTarget);
     const pwd = formData.get('password') as string;
-    
     try {
       const user = await apiLogin(email, pwd);
       login(user);
       navigate('/');
     } catch (err: any) {
-      console.error(err);
-      let msg = "Failed to login.";
-      
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        msg = "Invalid email or password.";
-      } else if (err.code === 'auth/too-many-requests') {
-        msg = "Access temporarily disabled due to too many failed attempts.";
-      } else if (err.message) {
-        msg = err.message;
-      }
-      
-      setError(msg);
+      setError("ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError("Please enter your email address first.");
-      return;
-    }
-    try {
-      await resetPassword(email);
-      setSuccess("Password reset email sent!");
-    } catch (err: any) {
-      setError(err.message || "Failed to send reset email.");
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
-      <div className="mb-8 text-center">
-        <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-red-200">
-          <Droplet className="text-white fill-current w-8 h-8" />
-        </div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">BloodLink Manager</h1>
-        <p className="text-slate-500 mt-2">Sign in to your account</p>
-      </div>
+    <AuthLayout 
+      title="Sign in"
+      subtitle="Log in to access your donor dashboard"
+      headline="WELCOME"
+      isLogin={true}
+    >
+      <form onSubmit={handleSubmit}>
+        <CustomInput 
+          icon={User}
+          type="email"
+          name="email"
+          placeholder="User Name / Email"
+          value={email}
+          onChange={(e: any) => setEmail(e.target.value)}
+        />
+        <CustomInput 
+          icon={Lock}
+          type={showPassword ? 'text' : 'password'}
+          name="password"
+          placeholder="Password"
+          showPasswordToggle
+          onToggleShow={() => setShowPassword(!showPassword)}
+        />
 
-      <Card className="w-full max-w-md p-8 shadow-xl border-t-4 border-red-600">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Input 
-            label="Email Address" 
-            name="email" 
-            type="email" 
-            required 
-            placeholder="Enter your email" 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <div>
-            <div className="flex justify-between mb-1">
-              <label className="block text-sm font-medium text-slate-700">Password</label>
-              <button 
-                type="button" 
-                onClick={handleForgotPassword}
-                className="text-xs text-red-600 hover:text-red-700 font-semibold"
-              >
-                Forgot Password?
-              </button>
+        <div className="flex items-center justify-between mb-6 lg:mb-8 px-2">
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="relative flex items-center">
+              <input type="checkbox" className="peer w-4.5 h-4.5 opacity-0 absolute cursor-pointer" />
+              <div className="w-4.5 h-4.5 border-2 border-slate-200 rounded-md peer-checked:bg-red-600 peer-checked:border-red-600 transition-all shadow-sm"></div>
+              <CheckIcon className="absolute left-0.5 text-white scale-0 peer-checked:scale-100 transition-transform" />
             </div>
-            <Input 
-              name="password" 
-              type="password" 
-              required 
-              placeholder="••••••••" 
-            />
+            <span className="text-xs lg:text-sm font-bold text-slate-500 group-hover:text-slate-700">Remember me</span>
+          </label>
+          <button type="button" onClick={() => navigate('/reset')} className="text-sm lg:text-base font-black text-red-600 hover:underline">Forgot Password?</button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3.5 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-red-100 flex items-center gap-2">
+            <AlertCircle size={14} /> {error}
           </div>
-          
-          {error && (
-            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+        )}
 
-          {success && (
-            <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-100">
-              {success}
-            </div>
-          )}
+        <button 
+          type="submit" 
+          disabled={loading}
+          className="w-full bg-[#c1121f] text-white py-4 lg:py-5 rounded-[1.25rem] font-black uppercase tracking-[0.25em] text-base lg:text-lg shadow-xl shadow-red-900/20 hover:bg-[#a0101a] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50"
+        >
+          {loading ? "Signing In..." : "SIGN IN"}
+        </button>
 
-          <Button type="submit" className="w-full py-3" isLoading={loading}>
-            Sign In
-          </Button>
-        </form>
-
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center text-sm text-slate-500">
-          New to the platform?{' '}
-          <Link to="/register" className="text-red-600 hover:text-red-700 font-bold">
-            Create an account
-          </Link>
-        </div>
-      </Card>
-    </div>
+        <p className="text-center text-sm lg:text-base font-bold text-slate-400 mt-6 lg:mt-8">
+          Don't have an account? <Link to="/register" className="text-red-600 font-black hover:underline ml-1 text-base lg:text-lg">Sign Up</Link>
+        </p>
+      </form>
+    </AuthLayout>
   );
 };
+
+const CheckIcon = ({ className }: { className?: string }) => (
+  <svg className={className} width="10" height="8" viewBox="0 0 12 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M1 5.5L4.5 9L11 1" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 export const Register = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
-
     if (data.password !== data.confirmPassword) {
-      setError("Passwords do not match");
+      setError("পাসওয়ার্ড মেলেনি।");
       setLoading(false);
       return;
     }
-
     try {
       const user = await apiRegister(data);
       login(user);
       navigate('/');
     } catch (err: any) {
-      console.error(err);
-      let msg = "Failed to register";
-      if (err.code === 'auth/email-already-in-use') {
-        msg = "Email is already registered.";
-      } else if (err.code === 'auth/weak-password') {
-        msg = "Password should be at least 6 characters.";
-      } else if (err.message) {
-        msg = err.message;
-      }
-      setError(msg);
+      setError(err.message || "রেজিস্ট্রেশন ব্যর্থ হয়েছে।");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 py-12">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Create Account</h1>
-        <p className="text-slate-500 mt-2">Join the life-saving donor community</p>
-      </div>
-
-      <Card className="w-full max-w-md p-8 shadow-xl border-t-4 border-red-600">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Full Name" name="name" required placeholder="John Doe" />
-          <Input label="Email Address" name="email" type="email" required placeholder="john@example.com" />
-          
-          <div className="grid grid-cols-2 gap-4">
-            <Select label="Blood Group" name="bloodGroup" required>
-              {BLOOD_GROUPS.map(bg => (
-                <option key={bg} value={bg}>{bg}</option>
-              ))}
-            </Select>
-            <Input label="Phone" name="phone" required placeholder="555-0123" />
-          </div>
-          <Input label="Location (City)" name="location" required placeholder="New York" />
-          <Input label="Password" name="password" type="password" required />
-          <Input label="Confirm Password" name="confirmPassword" type="password" required />
-
-          {error && (
-            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+    <AuthLayout 
+      title="Join Now"
+      subtitle="রক্তদাতা হিসেবে নিবন্ধন করুন এবং জীবন বাঁচান"
+      headline="JOIN US"
+      isLogin={false}
+      description="আপনার নিবন্ধন হতে পারে কারো জীবনের একমাত্র ভরসা। আমাদের পরিবারের অংশ হয়ে মানবিক সেবায় এগিয়ে আসুন।"
+    >
+      <form onSubmit={handleSubmit} className="space-y-0.5">
+        <CustomInput icon={User} name="name" placeholder="আপনার পূর্ণ নাম" />
+        <CustomInput icon={Mail} type="email" name="email" placeholder="ইমেইল এড্রেস" />
+        
+        <div className="grid grid-cols-2 gap-3 mb-2 lg:mb-3">
+          <div className="relative group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+              <Droplet size={18} />
             </div>
-          )}
-
-          <Button type="submit" className="w-full py-3 mt-4" isLoading={loading}>
-            Create Account
-          </Button>
-        </form>
-
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center text-sm text-slate-500">
-          Already have an account?{' '}
-          <Link to="/login" className="text-red-600 hover:text-red-700 font-bold">
-            Sign in
-          </Link>
+            <select name="bloodGroup" required className="w-full pl-11 pr-3 py-3.5 lg:py-4 bg-[#f8fafc] border-2 border-transparent rounded-[1.25rem] text-slate-900 font-bold text-sm focus:bg-white focus:border-red-600/30 outline-none transition-all appearance-none cursor-pointer shadow-sm">
+              <option value="">রক্তের গ্রুপ</option>
+              {BLOOD_GROUPS.map(bg => <option key={bg} value={bg}>{bg}</option>)}
+            </select>
+          </div>
+          <div className="relative group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300">
+              <Phone size={18} />
+            </div>
+            <input name="phone" placeholder="ফোন নম্বর" required className="w-full pl-11 pr-3 py-3.5 lg:py-4 bg-[#f8fafc] border-2 border-transparent rounded-[1.25rem] text-slate-900 font-bold text-sm focus:bg-white focus:border-red-600/30 outline-none transition-all shadow-sm" />
+          </div>
         </div>
-      </Card>
-    </div>
+
+        <CustomInput icon={MapPin} name="location" placeholder="বর্তমান এলাকা/শহর" />
+        
+        <div className="grid grid-cols-2 gap-3">
+          <CustomInput 
+            icon={Lock} 
+            type={showPassword ? 'text' : 'password'} 
+            name="password" 
+            placeholder="পাসওয়ার্ড" 
+            showPasswordToggle
+            onToggleShow={() => setShowPassword(!showPassword)}
+          />
+          <CustomInput 
+            icon={Lock} 
+            type={showPassword ? 'text' : 'password'} 
+            name="confirmPassword" 
+            placeholder="নিশ্চিত করুন" 
+          />
+        </div>
+
+        {error && (
+          <div className="p-3.5 bg-red-50 text-red-600 text-[9px] font-black uppercase tracking-widest rounded-xl border border-red-100 flex items-center gap-2">
+            <AlertCircle size={14} /> {error}
+          </div>
+        )}
+
+        <button 
+          type="submit" 
+          disabled={loading}
+          className="w-full bg-[#c1121f] text-white py-4 lg:py-5 rounded-[1.25rem] font-black uppercase tracking-[0.25em] text-base lg:text-lg shadow-xl shadow-red-900/20 hover:bg-[#a0101a] hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 mt-4"
+        >
+          {loading ? "Creating Account..." : "CREATE ACCOUNT"}
+        </button>
+
+        <p className="text-center text-sm lg:text-base font-bold text-slate-400 pt-6 lg:pt-8">
+          Already have an account? <Link to="/login" className="text-red-600 font-black hover:underline text-base lg:text-lg ml-1">Sign In</Link>
+        </p>
+      </form>
+    </AuthLayout>
   );
 };

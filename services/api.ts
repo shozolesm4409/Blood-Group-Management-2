@@ -157,8 +157,6 @@ export const toggleFeedbackVisibility = async (feedbackId: string, isVisible: bo
 };
 
 export const subscribeToApprovedFeedbacks = (callback: (feedbacks: DonationFeedback[]) => void, onError?: (err: any) => void) => {
-  // We use a simple collection query to avoid the requirement for a composite index (failed-precondition)
-  // Filtering and sorting are performed client-side.
   const q = collection(db, COLLECTIONS.FEEDBACKS);
   
   return onSnapshot(q, (snap) => {
@@ -210,15 +208,16 @@ export const login = async (email: string, password: string): Promise<User> => {
   const isAdminEmail = normalizedEmail === ADMIN_EMAIL;
 
   if (!userDoc.exists()) {
-    const newUser: User = { id: uid, role: isAdminEmail ? UserRole.ADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isAdminEmail, hasSupportAccess: true };
+    const newUser: User = { id: uid, role: isAdminEmail ? UserRole.ADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isAdminEmail, hasSupportAccess: true, hasFeedbackAccess: isAdminEmail };
     await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
     return newUser;
   }
   const data = userDoc.data() as User;
   if (isAdminEmail && data.role !== UserRole.ADMIN) {
-    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true });
+    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true, hasFeedbackAccess: true });
     data.role = UserRole.ADMIN;
     data.hasDirectoryAccess = true;
+    data.hasFeedbackAccess = true;
   }
   await createLog('LOGIN', uid, data.name, 'Authenticated successfully.', data.avatar);
   return data;
@@ -229,7 +228,7 @@ export const register = async (data: any): Promise<User> => {
   const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
   const uid = userCredential.user.uid;
   const isAdmin = normalizedEmail === ADMIN_EMAIL;
-  const newUser: User = { id: uid, role: isAdmin ? UserRole.ADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isAdmin, hasSupportAccess: true };
+  const newUser: User = { id: uid, role: isAdmin ? UserRole.ADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isAdmin, hasSupportAccess: true, hasFeedbackAccess: isAdmin };
   await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
   await createLog('REGISTER', uid, data.name, 'Profile initialized.', newUser.avatar);
   return newUser;
@@ -294,9 +293,27 @@ export const handleDirectoryAccess = async (userId: string, approved: boolean, a
   const userRef = doc(db, COLLECTIONS.USERS, userId);
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
-    const userData = userSnap.data() as User;
     await updateDoc(userRef, { hasDirectoryAccess: approved, directoryAccessRequested: false });
     await createLog('DIRECTORY_ACCESS_UPDATE', admin.id, admin.name, `Directory Access updated for ${userId}`, admin.avatar);
+  }
+};
+
+export const requestDirectoryAccess = async (user: User) => {
+  await updateDoc(doc(db, COLLECTIONS.USERS, user.id), { directoryAccessRequested: true });
+  await createLog('DIRECTORY_ACCESS_REQUEST', user.id, user.name, 'User requested directory access.', user.avatar);
+};
+
+export const requestFeedbackAccess = async (user: User) => {
+  await updateDoc(doc(db, COLLECTIONS.USERS, user.id), { feedbackAccessRequested: true });
+  await createLog('FEEDBACK_ACCESS_REQUEST', user.id, user.name, 'User requested experience feedback access.', user.avatar);
+};
+
+export const handleFeedbackAccess = async (userId: string, approved: boolean, admin: User) => {
+  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userSnap = await getDoc(userRef);
+  if (userSnap.exists()) {
+    await updateDoc(userRef, { hasFeedbackAccess: approved, feedbackAccessRequested: false });
+    await createLog('FEEDBACK_ACCESS_UPDATE', admin.id, admin.name, `Feedback access updated for ${userId}`, admin.avatar);
   }
 };
 
@@ -379,7 +396,9 @@ export const restoreRevokedPermission = async (id: string, admin: User): Promise
   if (snap.exists()) {
     const data = snap.data() as RevokedPermission;
     const userRef = doc(db, COLLECTIONS.USERS, data.userId);
-    await updateDoc(userRef, data.type === 'DIRECTORY' ? { hasDirectoryAccess: true } : { hasSupportAccess: true });
+    if (data.type === 'DIRECTORY') await updateDoc(userRef, { hasDirectoryAccess: true });
+    else if (data.type === 'SUPPORT') await updateDoc(userRef, { hasSupportAccess: true });
+    else if (data.type === 'FEEDBACK') await updateDoc(userRef, { hasFeedbackAccess: true });
     await deleteDoc(ref);
   }
 };
@@ -409,7 +428,6 @@ export const sendMessage = async (msg: Omit<ChatMessage, 'id' | 'timestamp' | 'r
 };
 
 export const subscribeToRoomMessages = (roomId: string, callback: (msgs: ChatMessage[]) => void, onError?: (err: any) => void) => {
-  // We use a simple collection reference and filter/sort client-side to avoid composite index requirements.
   const q = collection(db, COLLECTIONS.MESSAGES);
   return onSnapshot(q, snap => {
     const data = snap.docs

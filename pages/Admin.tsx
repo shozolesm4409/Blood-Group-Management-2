@@ -18,6 +18,8 @@ import {
   updateAppPermissions,
   handleDirectoryAccess,
   handleSupportAccess,
+  handleFeedbackAccess,
+  requestDirectoryAccess,
   deleteLogEntry,
   getRevokedPermissions,
   restoreRevokedPermission,
@@ -30,9 +32,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Card, Badge, Button, Input, Select, ConfirmModal } from '../components/UI';
 import { DonationRecord, AuditLog, DonationStatus, User, UserRole, AppPermissions, BloodGroup, RevokedPermission, LandingPageConfig } from '../types';
-// Added Activity to the imports below to fix the "Cannot find name 'Activity'" error.
 import { 
-  Check, X, Edit2, Trash2, Key, Users, Layout as LayoutIcon, ShieldCheck, Clock, Archive, Droplet, CheckCircle, RotateCcw, Filter, Search, BellRing, ShieldAlert, ShieldCheck as ShieldIcon, Settings2, Monitor, Save, RefreshCcw, Activity
+  Check, X, Edit2, Trash2, Key, Users, Layout as LayoutIcon, ShieldCheck, Clock, Archive, Droplet, CheckCircle, RotateCcw, Filter, Search, BellRing, ShieldAlert, ShieldCheck as ShieldIcon, Settings2, Monitor, Save, RefreshCcw, Activity, Lock
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -146,7 +147,6 @@ export const LandingPageManagement = () => {
 
           <Card className="p-6 border-0 shadow-lg">
             <h3 className="font-black text-sm uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
-              {/* Activity icon from lucide-react used here (line 148). */}
               <Activity size={18} className="text-red-600" /> Sections Headers
             </h3>
             <div className="space-y-4">
@@ -313,11 +313,12 @@ export const UserManagement = () => {
     }
   };
 
-  const handleAccessAction = async (userId: string, type: 'directory' | 'support', approve: boolean) => {
+  const handleAccessAction = async (userId: string, type: 'directory' | 'support' | 'feedback', approve: boolean) => {
     if (!currentUser) return;
     try {
       if (type === 'directory') await handleDirectoryAccess(userId, approve, currentUser);
-      else await handleSupportAccess(userId, approve, currentUser);
+      else if (type === 'support') await handleSupportAccess(userId, approve, currentUser);
+      else if (type === 'feedback') await handleFeedbackAccess(userId, approve, currentUser);
       fetchData();
     } catch (e) {
       alert("Action failed.");
@@ -464,6 +465,14 @@ export const UserManagement = () => {
                           u.supportAccessRequested ? <Badge color="yellow">Requested</Badge> : <Badge color="gray">None</Badge>
                         )}
                       </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase text-slate-400 min-w-[50px]">Feedback:</span>
+                        {u.hasFeedbackAccess ? (
+                          <Badge color="green">Active</Badge>
+                        ) : (
+                          u.feedbackAccessRequested ? <Badge color="yellow">Requested</Badge> : <Badge color="gray">None</Badge>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="px-2 py-1.5 text-right">
@@ -497,6 +506,22 @@ export const UserManagement = () => {
                             <button onClick={() => handleAccessAction(u.id, 'support', false)} className="px-2 py-0.5 bg-slate-100 text-red-600 rounded text-[10px] font-black uppercase hover:bg-red-50 transition-colors">Remove</button>
                           ) : (
                             <button onClick={() => handleAccessAction(u.id, 'support', true)} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-black uppercase hover:bg-blue-100 transition-colors">Grant</button>
+                          )
+                        )}
+                      </div>
+                      {/* Administrative Controls for Feedback */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-bold text-slate-500 italic">Feedback:</span>
+                        {u.feedbackAccessRequested ? (
+                          <div className="flex gap-2">
+                            <button onClick={() => handleAccessAction(u.id, 'feedback', true)} className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-black uppercase hover:bg-green-100 transition-colors">Approve</button>
+                            <button onClick={() => handleAccessAction(u.id, 'feedback', false)} className="px-2 py-0.5 bg-red-50 text-red-700 rounded text-[10px] font-black uppercase hover:bg-red-100 transition-colors">Deny</button>
+                          </div>
+                        ) : (
+                          u.hasFeedbackAccess ? (
+                            <button onClick={() => handleAccessAction(u.id, 'feedback', false)} className="px-2 py-0.5 bg-slate-100 text-red-600 rounded text-[10px] font-black uppercase hover:bg-red-50 transition-colors">Remove</button>
+                          ) : (
+                            <button onClick={() => handleAccessAction(u.id, 'feedback', true)} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-black uppercase hover:bg-blue-100 transition-colors">Grant</button>
                           )
                         )}
                       </div>
@@ -640,6 +665,7 @@ export const ManageDonations = () => {
                         <button onClick={() => handleStatusUpdate(d.id, DonationStatus.REJECTED)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><X size={18}/></button>
                       </>
                     )}
+                    {/* Fix: Pass d.id to handleDelete to resolve undefined 'id' variable */}
                     <button onClick={() => handleDelete(d.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
                   </div>
                 </td>
@@ -655,164 +681,12 @@ export const ManageDonations = () => {
   );
 };
 
-export const DeletedRecords = () => {
-  const { user: admin } = useAuth();
-  const [users, setUsers] = useState<any[]>([]);
-  const [donations, setDonations] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'donations' | 'logs'>('users');
-
-  const fetchData = async () => {
-    setLoading(true);
-    const [u, d, l] = await Promise.all([getDeletedUsers(), getDeletedDonations(), getDeletedLogs()]);
-    setUsers(u);
-    setDonations(d);
-    setLogs(l);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
-  const handleRestoreUser = async (id: string) => {
-    if (!admin) return;
-    try {
-      await restoreDeletedUser(id, admin);
-      alert("User profile restored.");
-      fetchData();
-    } catch (e) { alert("Failed to restore."); }
-  };
-
-  const handleRestoreDonation = async (id: string) => {
-    if (!admin) return;
-    try {
-      await restoreDeletedDonation(id, admin);
-      alert("Donation record restored.");
-      fetchData();
-    } catch (e) { alert("Failed to restore."); }
-  };
-
-  const handleRestoreLog = async (id: string) => {
-    if (!admin) return;
-    try {
-      await restoreDeletedLog(id, admin);
-      alert("Log entry restored.");
-      fetchData();
-    } catch (e) { alert("Failed to restore."); }
-  };
-
-  if (loading) return <div className="p-20 text-center font-bold text-slate-400 italic">Accessing historical vault...</div>;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Archive size={24} className="text-red-600"/> System Archives</h1>
-        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-          <button onClick={() => setActiveTab('users')} className={clsx("px-4 py-1.5 rounded-md text-xs font-semibold transition-all", activeTab === 'users' ? "bg-white shadow-sm text-red-600" : "text-slate-500")}>Identity Archives</button>
-          <button onClick={() => setActiveTab('donations')} className={clsx("px-4 py-1.5 rounded-md text-xs font-semibold transition-all", activeTab === 'donations' ? "bg-white shadow-sm text-red-600" : "text-slate-500")}>Donation Archives</button>
-          <button onClick={() => setActiveTab('logs')} className={clsx("px-4 py-1.5 rounded-md text-xs font-semibold transition-all", activeTab === 'logs' ? "bg-white shadow-sm text-red-600" : "text-slate-500")}>Activity Archives</button>
-        </div>
-      </div>
-
-      <Card className="overflow-hidden border border-slate-200 rounded-xl">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-900 text-white text-xs font-bold uppercase">
-            <tr>
-              <th className="px-2 py-1.5">Entry Details</th>
-              <th className="px-2 py-1.5">Purged By</th>
-              <th className="px-2 py-1.5">Purged At</th>
-              <th className="px-2 py-1.5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {activeTab === 'users' && users.map(u => (
-              <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-2 py-1.5 font-bold">{u.name}</td>
-                <td className="px-2 py-1.5 text-slate-500 font-semibold">{u.deletedBy}</td>
-                <td className="px-2 py-1.5 text-slate-400 italic">{new Date(u.deletedAt).toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right">
-                  <button onClick={() => handleRestoreUser(u.id)} className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline"><RotateCcw size={14}/> Restore Profile</button>
-                </td>
-              </tr>
-            ))}
-            {activeTab === 'donations' && donations.map(d => (
-              <tr key={d.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-2 py-1.5 font-bold">{d.userName} ({d.units}ml)</td>
-                <td className="px-2 py-1.5 text-slate-500 font-semibold">{d.deletedBy}</td>
-                <td className="px-2 py-1.5 text-slate-400 italic">{new Date(d.deletedAt).toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right">
-                  <button onClick={() => handleRestoreDonation(d.id)} className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline"><RotateCcw size={14}/> Restore Entry</button>
-                </td>
-              </tr>
-            ))}
-            {activeTab === 'logs' && logs.map(l => (
-              <tr key={l.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-2 py-1.5">
-                  <p className="font-bold text-xs uppercase text-slate-700">{l.action}</p>
-                  <p className="text-[11px] text-slate-500">{l.details}</p>
-                </td>
-                <td className="px-2 py-1.5 text-slate-500 font-semibold">{l.deletedBy}</td>
-                <td className="px-2 py-1.5 text-slate-400 italic">{new Date(l.deletedAt).toLocaleString()}</td>
-                <td className="px-2 py-1.5 text-right">
-                  <button onClick={() => handleRestoreLog(l.id)} className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline"><RotateCcw size={14}/> Restore Log</button>
-                </td>
-              </tr>
-            ))}
-            {(activeTab === 'users' ? users : (activeTab === 'donations' ? donations : logs)).length === 0 && (
-              <tr><td colSpan={4} className="px-6 py-20 text-center text-slate-400 italic">Historical vault is empty for this category.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </Card>
-    </div>
-  );
-};
-
-export const SystemLogs = () => {
-  const { user: admin } = useAuth();
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  useEffect(() => { getLogs().then(setLogs); }, []);
-  const handleDeleteLog = async (id: string) => {
-    if (!admin) return;
-    try {
-      await deleteLogEntry(id, admin);
-      getLogs().then(setLogs);
-    } catch (e) {}
-  };
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">System Activity Registry</h1>
-      <Card className="overflow-hidden border border-slate-200 rounded-xl">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold uppercase">
-            <tr>
-              <th className="px-2 py-1.5">Action Type</th>
-              <th className="px-2 py-1.5">Actor</th>
-              <th className="px-2 py-1.5">Diagnostic Details</th>
-              <th className="px-2 py-1.5 text-right">Management</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {logs.map(log => (
-              <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-2 py-1.5 font-bold text-xs text-slate-900">{log.action}</td>
-                <td className="px-2 py-1.5 font-semibold text-slate-600">{log.userName}</td>
-                <td className="px-2 py-1.5 text-xs text-slate-500 italic">{log.details}</td>
-                <td className="px-2 py-1.5 text-right"><button onClick={() => handleDeleteLog(log.id)} className="text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={16} /></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-    </div>
-  );
-};
-
 export const DonorSearch = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [donors, setDonors] = useState<User[]>([]);
   const [filter, setFilter] = useState({ blood: '', location: '' });
   const [loading, setLoading] = useState(true);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -823,10 +697,59 @@ export const DonorSearch = () => {
     }
   }, [user]);
 
+  const handleRequestAccess = async () => {
+    if (!user) return;
+    setIsRequesting(true);
+    try {
+      await requestDirectoryAccess(user);
+      updateUser({ ...user, directoryAccessRequested: true });
+      alert("Access request sent to administration.");
+    } catch (e) {
+      alert("Request failed.");
+    } finally {
+      setIsRequesting(false);
+    }
+  };
+
   const filtered = donors.filter(d => 
     (!filter.blood || d.bloodGroup === filter.blood) &&
     (!filter.location || d.location.toLowerCase().includes(filter.location.toLowerCase()))
   );
+
+  const hasAccess = user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR || user?.hasDirectoryAccess;
+
+  if (!hasAccess) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4">
+        <Card className="p-12 text-center space-y-8 border-0 shadow-2xl bg-white rounded-[3rem]">
+          <div className="w-24 h-24 bg-red-50 text-red-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+            <Lock size={48} />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Directory Locked</h2>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              ডোনার ডিরেক্টরি দেখার জন্য আপনার এক্সেস প্রয়োজন। রক্তদাতাদের তথ্য ও যোগাযোগের জন্য রিকোয়েস্ট পাঠান।
+            </p>
+          </div>
+          
+          {user?.directoryAccessRequested ? (
+            <div className="p-6 bg-yellow-50 text-yellow-700 rounded-2xl border border-yellow-100 flex items-center justify-center gap-3">
+              <ShieldAlert size={20} />
+              <span className="font-black text-sm uppercase tracking-widest">Pending Verification</span>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleRequestAccess} 
+              isLoading={isRequesting}
+              className="w-full py-5 rounded-2xl text-lg"
+            >
+              Request Directory Access
+            </Button>
+          )}
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -888,15 +811,16 @@ export const DirectoryPermissions = () => {
   const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    getUsers().then(u => setUsers(u.filter(usr => usr.directoryAccessRequested || usr.supportAccessRequested)));
+    getUsers().then(u => setUsers(u.filter(usr => usr.directoryAccessRequested || usr.supportAccessRequested || usr.feedbackAccessRequested)));
   }, []);
 
-  const handleAction = async (userId: string, type: 'directory' | 'support', approve: boolean) => {
+  const handleAction = async (userId: string, type: 'directory' | 'support' | 'feedback', approve: boolean) => {
     if (!admin) return;
     try {
       if (type === 'directory') await handleDirectoryAccess(userId, approve, admin);
-      else await handleSupportAccess(userId, approve, admin);
-      getUsers().then(u => setUsers(u.filter(usr => usr.directoryAccessRequested || usr.supportAccessRequested)));
+      else if (type === 'support') await handleSupportAccess(userId, approve, admin);
+      else if (type === 'feedback') await handleFeedbackAccess(userId, approve, admin);
+      getUsers().then(u => setUsers(u.filter(usr => usr.directoryAccessRequested || usr.supportAccessRequested || usr.feedbackAccessRequested)));
     } catch (e) { alert("Action failed."); }
   };
 
@@ -913,20 +837,193 @@ export const DirectoryPermissions = () => {
               <div>
                 <p className="font-bold">{u.name}</p>
                 <p className="text-xs text-slate-500 italic">{u.email}</p>
-                <div className="flex gap-2 mt-1">
-                  {u.directoryAccessRequested && <Badge color="blue">Directory Request</Badge>}
-                  {u.supportAccessRequested && <Badge color="green">Support Request</Badge>}
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {u.directoryAccessRequested && <Badge color="blue">Directory</Badge>}
+                  {u.supportAccessRequested && <Badge color="green">Support</Badge>}
+                  {u.feedbackAccessRequested && <Badge color="yellow">Feedback</Badge>}
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={() => handleAction(u.id, u.directoryAccessRequested ? 'directory' : 'support', true)} className="flex-1 py-1.5 text-[10px] bg-green-600 hover:bg-green-700">Approve Access</Button>
-              <Button variant="outline" onClick={() => handleAction(u.id, u.directoryAccessRequested ? 'directory' : 'support', false)} className="flex-1 py-1.5 text-[10px] text-red-600 border-red-100 hover:bg-red-50">Deny Access</Button>
+            <div className="space-y-2">
+              {u.directoryAccessRequested && (
+                <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg">
+                  <span className="text-[10px] font-black uppercase text-slate-400">Directory</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleAction(u.id, 'directory', true)} className="px-3 py-1 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase">Grant</button>
+                    <button onClick={() => handleAction(u.id, 'directory', false)} className="px-3 py-1 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase">Deny</button>
+                  </div>
+                </div>
+              )}
+              {u.supportAccessRequested && (
+                <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg">
+                  <span className="text-[10px] font-black uppercase text-slate-400">Support</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleAction(u.id, 'support', true)} className="px-3 py-1 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase">Grant</button>
+                    <button onClick={() => handleAction(u.id, 'support', false)} className="px-3 py-1 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase">Deny</button>
+                  </div>
+                </div>
+              )}
+              {u.feedbackAccessRequested && (
+                <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg">
+                  <span className="text-[10px] font-black uppercase text-slate-400">Feedback</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleAction(u.id, 'feedback', true)} className="px-3 py-1 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase">Grant</button>
+                    <button onClick={() => handleAction(u.id, 'feedback', false)} className="px-3 py-1 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase">Deny</button>
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         ))}
         {users.length === 0 && <div className="col-span-full py-12 text-center text-slate-400 italic">Queue is empty. No pending access requests found.</div>}
       </div>
+    </div>
+  );
+};
+
+// @fix: Implemented SystemLogs component for activity monitoring
+export const SystemLogs = () => {
+  const { user: admin } = useAuth();
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    const data = await getLogs();
+    setLogs(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchLogs(); }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!admin) return;
+    if (window.confirm("Archive this log entry?")) {
+      await deleteLogEntry(id, admin);
+      fetchLogs();
+    }
+  };
+
+  if (loading) return <div className="p-20 text-center font-bold text-slate-400 italic">Accessing Logs...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">System Activity Logs</h1>
+        <Button onClick={fetchLogs} variant="outline" className="flex items-center gap-2">
+           <RefreshCcw size={16} /> Refresh
+        </Button>
+      </div>
+
+      <Card className="overflow-hidden border border-slate-200 rounded-xl">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold uppercase">
+            <tr>
+              <th className="px-4 py-3">Timestamp</th>
+              <th className="px-4 py-3">User</th>
+              <th className="px-4 py-3">Action</th>
+              <th className="px-4 py-3">Details</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {logs.map(log => (
+              <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                <td className="px-4 py-3 text-slate-500 font-medium whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                      {log.userAvatar ? <img src={log.userAvatar} className="w-full h-full object-cover" alt="User" /> : <Users className="p-1 text-slate-300" />}
+                    </div>
+                    <span className="font-bold">{log.userName}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3"><Badge color="blue">{log.action}</Badge></td>
+                <td className="px-4 py-3 text-slate-600 italic max-w-xs truncate">{log.details}</td>
+                <td className="px-4 py-3 text-right">
+                  <button onClick={() => handleDelete(log.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors"><Trash2 size={16} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+};
+
+// @fix: Implemented DeletedRecords component to manage system archives
+export const DeletedRecords = () => {
+  const { user: admin } = useAuth();
+  const [activeTab, setActiveTab] = useState<'users' | 'donations' | 'logs'>('users');
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    setLoading(true);
+    let res = [];
+    if (activeTab === 'users') res = await getDeletedUsers();
+    else if (activeTab === 'donations') res = await getDeletedDonations();
+    else if (activeTab === 'logs') res = await getDeletedLogs();
+    setData(res);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchData(); }, [activeTab]);
+
+  const handleRestore = async (id: string) => {
+    if (!admin) return;
+    try {
+      if (activeTab === 'users') await restoreDeletedUser(id, admin);
+      else if (activeTab === 'donations') await restoreDeletedDonation(id, admin);
+      else if (activeTab === 'logs') await restoreDeletedLog(id, admin);
+      alert("Record restored successfully.");
+      fetchData();
+    } catch (e) { alert("Restore failed."); }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">System Archives</h1>
+        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+          <button onClick={() => setActiveTab('users')} className={clsx("px-4 py-1.5 rounded-md text-xs font-semibold transition-all", activeTab === 'users' ? "bg-white shadow-sm text-red-600" : "text-slate-500")}>Users</button>
+          <button onClick={() => setActiveTab('donations')} className={clsx("px-4 py-1.5 rounded-md text-xs font-semibold transition-all", activeTab === 'donations' ? "bg-white shadow-sm text-red-600" : "text-slate-500")}>Donations</button>
+          <button onClick={() => setActiveTab('logs')} className={clsx("px-4 py-1.5 rounded-md text-xs font-semibold transition-all", activeTab === 'logs' ? "bg-white shadow-sm text-red-600" : "text-slate-500")}>Logs</button>
+        </div>
+      </div>
+      <Card className="overflow-hidden border border-slate-200 rounded-xl min-h-[400px]">
+        {loading ? <div className="flex items-center justify-center py-20"><Activity className="animate-spin text-red-600" /></div> : (
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 font-bold uppercase">
+              <tr>
+                <th className="px-4 py-3">Record Info</th>
+                <th className="px-4 py-3">Deleted At</th>
+                <th className="px-4 py-3">Deleted By</th>
+                <th className="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.map(item => (
+                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3">
+                    <p className="font-bold">{item.name || item.userName || item.action || 'Unknown'}</p>
+                    <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.email || item.details || item.id}</p>
+                  </td>
+                  <td className="px-4 py-3 text-slate-500">{new Date(item.deletedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-slate-500 font-medium">{item.deletedBy}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => handleRestore(item.id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 ml-auto">
+                      <RotateCcw size={16} /> <span className="text-[10px] font-black uppercase">Restore</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {data.length === 0 && <tr><td colSpan={4} className="px-4 py-20 text-center text-slate-400 italic">No archived records found.</td></tr>}
+            </tbody>
+          </table>
+        )}
+      </Card>
     </div>
   );
 };

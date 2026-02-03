@@ -40,7 +40,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       const fetchCounts = async () => {
         try {
           const [users, donations] = await Promise.all([getUsers(), getDonations()]);
-          const pendingUsers = users.filter(u => u.directoryAccessRequested || u.supportAccessRequested).length;
+          const pendingUsers = users.filter(u => u.directoryAccessRequested || u.supportAccessRequested || u.feedbackAccessRequested).length;
           const pendingDonations = donations.filter(d => d.status === DonationStatus.PENDING).length;
           setNotificationCount(pendingDonations);
           setPendingUserCount(pendingUsers);
@@ -123,10 +123,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
             {currentRolePerms?.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
             {currentRolePerms?.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="My Profile" />}
-            {currentRolePerms?.sidebar.donors && <NavItem to="/donors" icon={Search} label="Donor Search" />}
+            {/* Always visible as per request */}
+            <NavItem to="/donors" icon={Search} label="Donor Search" />
             {currentRolePerms?.sidebar.history && <NavItem to="/my-donations" icon={History} label="Donation History" />}
             {currentRolePerms?.sidebar.supportCenter && <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={unreadMsgCount} />}
-            {currentRolePerms?.sidebar.feedback && <NavItem to="/feedback" icon={MessageSquareQuote} label="Experience Feedback" />}
+            {/* Always visible as per request */}
+            <NavItem to="/feedback" icon={MessageSquareQuote} label="Experience Feedback" />
             
             {(isAdmin || isEditor) && (
               <>
