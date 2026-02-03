@@ -133,11 +133,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
+      {/* Added h-screen and overflow-hidden to ensure sidebar handles scrolling within itself */}
       <aside className={clsx(
-        "fixed lg:static inset-y-0 left-0 z-[70] w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col shadow-2xl lg:shadow-none",
+        "fixed lg:static inset-y-0 left-0 z-[70] w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col shadow-2xl lg:shadow-none h-screen overflow-hidden",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="h-20 flex items-center px-6 gap-3 mb-2">
+        <div className="h-20 flex-shrink-0 flex items-center px-6 gap-3 mb-2">
           <div className="w-10 h-10 bg-red-600 rounded-2xl flex items-center justify-center shadow-xl shadow-red-100 ring-4 ring-red-50">
             <Droplet className="text-white fill-current" size={22} />
           </div>
@@ -147,6 +148,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           </div>
         </div>
 
+        {/* This container scrolls when menu items exceed viewport height */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-10">
           <SidebarSection title="User Hub">
             {currentRolePerms.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
@@ -183,7 +185,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+        {/* Footer section stays fixed at the bottom */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
           <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm mb-3">
             <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-black overflow-hidden border border-red-100">
               {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : user?.name.charAt(0)}
@@ -203,7 +206,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="lg:hidden bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-50">
+        <header className="lg:hidden bg-white border-b border-slate-200 h-16 flex-shrink-0 flex items-center justify-between px-6 shadow-sm z-50">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-red-600 rounded-xl flex items-center justify-center">
               <Droplet className="text-white fill-current" size={18} />
