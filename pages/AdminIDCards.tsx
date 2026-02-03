@@ -25,9 +25,9 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
            <div className="absolute top-[10%] right-[-30%] w-[100%] h-[100%] bg-red-400/20 rounded-[5rem] rotate-[-10deg]"></div>
         </div>
         
-        {/* Logo & Org Name - Positioned higher to avoid photo overlap */}
-        <div className="relative z-10 pt-6 px-5 flex flex-col items-center">
-           <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-1.5 ring-4 ring-white/10">
+        {/* Logo & Org Name - Positioned higher to ensure visibility with larger photo */}
+        <div className="relative z-10 pt-4 px-5 flex flex-col items-center">
+           <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-1 ring-4 ring-white/10">
               <Droplet size={22} className="text-red-600 fill-current" />
            </div>
            <h3 className="text-white font-black tracking-tighter text-xl leading-none">BLOODLINK</h3>
@@ -35,9 +35,9 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
         </div>
       </div>
 
-      {/* Profile Photo Area - Reduced size (w-20) and adjusted negative margin (-mt-8) */}
-      <div className="relative z-20 -mt-8 flex justify-center">
-         <div className="w-20 h-20 bg-white rounded-2xl p-1 shadow-2xl ring-1 ring-slate-100">
+      {/* Profile Photo Area - Increased size (w-24) and adjusted positioning */}
+      <div className="relative z-20 -mt-12 flex justify-center">
+         <div className="w-24 h-24 bg-white rounded-2xl p-1 shadow-2xl ring-1 ring-slate-100">
             <div className="w-full h-full bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white">
               {user.avatar ? (
                 <img 
@@ -51,7 +51,7 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
                   }}
                 />
               ) : (
-                <UserIcon size={32} className="text-slate-300" />
+                <UserIcon size={36} className="text-slate-300" />
               )}
             </div>
          </div>
@@ -66,7 +66,8 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
            </Badge>
          </div>
 
-         <div className="w-full space-y-2 mt-1">
+         {/* Pushed these blocks down as requested using mt-4 */}
+         <div className="w-full space-y-2 mt-4">
             <div className="flex items-center justify-between bg-red-50/60 px-4 py-2 rounded-xl border border-red-100/50 shadow-sm">
                <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">BL ID</span>
                <span className="text-[11px] font-black text-red-700 tracking-wider">{user.idNumber || 'BL-XXXXXX'}</span>
