@@ -36,12 +36,12 @@ export interface NavLink {
 export interface Notice {
   id: string;
   subject: string;
-  details: string; // HTML-ish string for styling
+  details: string; 
   authorId: string;
   authorName: string;
   authorAvatar?: string;
   timestamp: string;
-  mentions?: string[]; // Array of mentioned user IDs
+  mentions?: string[];
 }
 
 export interface LandingPageConfig {
@@ -56,17 +56,11 @@ export interface LandingPageConfig {
   ctaSubtitle: string;
   ctaButtonText: string;
   
-  // Navigation
   navbarLinks?: NavLink[];
   footerLinks?: NavLink[];
   footerCopyright?: string;
   footerTagline?: string;
   
-  // Auth Styles
-  loginStyles?: { padding: number; margin: number };
-  signupStyles?: { padding: number; margin: number };
-
-  // Content Customization
   loginHeadline?: string;       
   loginDescription?: string;    
   loginTitle?: string;          
@@ -82,6 +76,7 @@ export interface LandingPageConfig {
 
 export interface User {
   id: string;
+  idNumber?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -97,6 +92,9 @@ export interface User {
   supportAccessRequested?: boolean;
   hasFeedbackAccess?: boolean;
   feedbackAccessRequested?: boolean;
+  hasIDCardAccess?: boolean;
+  idCardAccessRequested?: boolean;
+  isSuspended?: boolean;
 }
 
 export interface DonationRecord {
@@ -146,16 +144,6 @@ export interface AuditLog {
   details: string;
 }
 
-export interface RevokedPermission {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-  type: 'DIRECTORY' | 'SUPPORT' | 'FEEDBACK';
-  revokedAt: string;
-  revokedBy: string;
-}
-
 export interface RolePermissions {
   sidebar: {
     dashboard: boolean;
@@ -171,6 +159,7 @@ export interface RolePermissions {
     approveFeedback?: boolean;
     landingSettings?: boolean;
     myNotice?: boolean;
+    summary?: boolean;
   };
   rules: {
     canEditProfile: boolean;
@@ -194,4 +183,12 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   token: string | null;
+}
+
+export interface RevokedPermission {
+  id: string;
+  userId: string;
+  type: 'DIRECTORY' | 'SUPPORT' | 'FEEDBACK';
+  revokedAt?: string;
+  revokedBy?: string;
 }

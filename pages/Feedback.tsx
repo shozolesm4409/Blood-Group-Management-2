@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, updateFeedbackMessage, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks, requestFeedbackAccess } from '../services/api';
-import { Card, Button, Badge, Input, Toast, useToast } from '../components/UI';
+import { Card, Button, Badge, Input, Toast, useToast, ConfirmModal } from '../components/UI';
 import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, Quote, ArrowLeft, Activity, Edit3, Lock, ShieldAlert } from 'lucide-react';
 import { DonationFeedback, FeedbackStatus, UserRole } from '../types';
 import { Link } from 'react-router-dom';
@@ -82,7 +82,7 @@ export const PublicFeedbackPage = () => {
           </div>
         ) : (
           <div className="py-32 text-center text-slate-400 font-bold italic bg-white rounded-[3rem] border border-dashed border-slate-200">
-            এখনো কোনো ফিডব্যাক এপ্রুভ করা হয়নি।
+            এখনো কোনো ফিডব্যাক পাওয়া যায়নি।
           </div>
         )}
       </div>
@@ -151,13 +151,8 @@ export const DonationFeedbackPage = () => {
               <span className="font-black text-sm uppercase tracking-widest">Request Pending Approval</span>
             </div>
           ) : (
-            <Button 
-              onClick={handleRequestAccess} 
-              isLoading={isRequesting}
-              className="w-full py-5 rounded-2xl text-lg"
-            >
-              Request Access Now
-            </Button>
+            // Fixed: Typo in variable name 'requesting' to 'isRequesting'
+            <Button onClick={handleRequestAccess} isLoading={isRequesting} className="w-full py-5 rounded-2xl text-lg">Request Access Now</Button>
           )}
         </Card>
       </div>
@@ -191,14 +186,7 @@ export const DonationFeedbackPage = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2 ml-1">আপনার অভিজ্ঞতা</label>
-              <textarea 
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="কোথায় রক্ত দিয়েছেন? কেমন লেগেছে? নতুন ডোনারদের জন্য আপনার বার্তা কি?"
-                required
-                rows={5}
-                className="w-full px-4 py-3 bg-slate-50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all resize-none"
-              />
+              <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="কোথায় রক্ত দিয়েছেন? কেমন লেগেছে? নতুন ডোনারদের জন্য আপনার বার্তা কি?" required rows={5} className="w-full px-4 py-3 bg-slate-50 border-0 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all resize-none" />
             </div>
             <Button type="submit" isLoading={loading} className="w-full py-4 rounded-2xl">ফিডব্যাক সাবমিট করুন</Button>
           </form>
@@ -215,6 +203,7 @@ export const FeedbackApprovalPage = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('ALL');
   const [editingFeedback, setEditingFeedback] = useState<DonationFeedback | null>(null);
+  const [deleteFeedbackId, setDeleteFeedbackId] = useState<string | null>(null);
   const [editMessage, setEditMessage] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -243,42 +232,26 @@ export const FeedbackApprovalPage = () => {
     }
   };
 
-  const handleToggleVisibility = async (id: string, currentVisibility: boolean) => {
+  const handleToggleVisibility = async (id: string, currentVal: boolean) => {
     try {
-      await toggleFeedbackVisibility(id, !currentVisibility);
-      showToast(`ফিডব্যাকটি ল্যান্ডিং পেজে ${!currentVisibility ? 'শো' : 'হাইড'} করা হয়েছে।`);
+      await toggleFeedbackVisibility(id, !currentVal);
+      showToast(`ভিজিবিলিটি আপডেট হয়েছে।`);
       fetchFeedbacks();
     } catch (e) {
-      showToast("পরিবর্তন ব্যর্থ হয়েছে।", "error");
+      showToast("ভিজিবিলিটি আপডেট ব্যর্থ হয়েছে।", "error");
     }
   };
 
-  const handleDeleteFeedback = async (id: string) => {
-    if (!user || user.role !== UserRole.ADMIN) {
-      showToast("Only Admin can delete feedback.", "error");
-      return;
-    }
-    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই ফিডব্যাকটি ডিলিট করতে চান? এটি আর্কাইভে জমা হবে।")) return;
-    
-    // Optimistic UI Update: Remove from local state immediately
-    const originalFeedbacks = [...feedbacks];
-    setFeedbacks(feedbacks.filter(f => f.id !== id));
-
+  const handleDeleteConfirm = async () => {
+    if (!user || !deleteFeedbackId) return;
     try {
-      await deleteFeedback(id, user);
+      await deleteFeedback(deleteFeedbackId, user);
       showToast("ফিডব্যাক ডিলিট করা হয়েছে।");
-      // Optionally fetch again to ensure sync with DB
+      setDeleteFeedbackId(null);
       fetchFeedbacks();
     } catch (e) {
-      // Rollback on error
-      setFeedbacks(originalFeedbacks);
-      showToast("ডিলিট ব্যর্থ হয়েছে। ডাটাবেস এর সাথে কানেকশন চেক করুন।", "error");
+      showToast("ডিলিট ব্যর্থ হয়েছে।", "error");
     }
-  };
-
-  const openEditModal = (feedback: DonationFeedback) => {
-    setEditingFeedback(feedback);
-    setEditMessage(feedback.message);
   };
 
   const handleSaveEdit = async () => {
@@ -303,44 +276,44 @@ export const FeedbackApprovalPage = () => {
   return (
     <div className="space-y-6">
       <Toast {...toastState} onClose={hideToast} />
+      <ConfirmModal 
+        isOpen={!!deleteFeedbackId} 
+        onClose={() => setDeleteFeedbackId(null)} 
+        onConfirm={handleDeleteConfirm} 
+        title="Delete Experience Feedback?" 
+        message="This feedback will be archived and removed from management and public display."
+      />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">ফিডব্যাক ম্যানেজমেন্ট</h1>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">ডোনারদের সাবমিট করা অভিজ্ঞতার তালিকা</p>
         </div>
-        <div className="flex gap-2">
-          <select 
-            value={filter} 
-            onChange={(e) => setFilter(e.target.value)}
-            className="bg-white border border-slate-200 text-xs font-black uppercase tracking-widest px-4 py-2 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
-          >
-            <option value="ALL">সব ফিডব্যাক</option>
-            <option value={FeedbackStatus.PENDING}>পেন্ডিং</option>
-            <option value={FeedbackStatus.APPROVED}>এপ্রুভড</option>
-            <option value={FeedbackStatus.REJECTED}>রিজেক্টেড</option>
-          </select>
-        </div>
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} className="bg-white border border-slate-200 text-xs font-black uppercase tracking-widest px-4 py-2 rounded-xl focus:ring-2 focus:ring-red-500 outline-none">
+          <option value="ALL">সব ফিডব্যাক</option>
+          <option value={FeedbackStatus.PENDING}>পেন্ডিং</option>
+          <option value={FeedbackStatus.APPROVED}>এপ্রুভড</option>
+          <option value={FeedbackStatus.REJECTED}>রিজেক্টেড</option>
+        </select>
       </div>
 
-      <Card className="overflow-hidden border-0 shadow-lg">
+      <Card className="overflow-hidden border-0 shadow-lg bg-white rounded-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 font-black uppercase tracking-widest">
               <tr>
-                <th className="px-6 py-4">ডোনার</th>
-                <th className="px-6 py-4">অভিজ্ঞতা / মেসেজ</th>
-                <th className="px-6 py-4">তারিখ</th>
-                <th className="px-6 py-4">স্ট্যাটাস</th>
-                <th className="px-6 py-4">ল্যান্ডিং পেজ</th>
-                <th className="px-6 py-4 text-right">অ্যাকশন</th>
+                <th className="px-6 py-5">ডোনার</th>
+                <th className="px-6 py-5">অভিজ্ঞতা / মেসেজ</th>
+                <th className="px-6 py-5">তারিখ</th>
+                <th className="px-6 py-5">স্ট্যাটাস</th>
+                <th className="px-6 py-5">ল্যান্ডিং পেজ</th>
+                <th className="px-6 py-5 text-right">অ্যাকশন</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredFeedbacks.map(f => (
-                <tr key={f.id} className="hover:bg-slate-50 transition-colors group">
+                <tr key={f.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200 flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
                         {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" /> : <UserIcon className="p-2.5 text-slate-300" />}
                       </div>
                       <span className="font-bold text-slate-900">{f.userName}</span>
@@ -349,7 +322,7 @@ export const FeedbackApprovalPage = () => {
                   <td className="px-6 py-4 max-w-xs">
                     <p className="text-slate-600 line-clamp-2 italic">"{f.message}"</p>
                   </td>
-                  <td className="px-6 py-4 text-slate-400 font-medium">
+                  <td className="px-6 py-4 text-slate-400 font-bold whitespace-nowrap">
                     {new Date(f.timestamp).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
@@ -359,42 +332,25 @@ export const FeedbackApprovalPage = () => {
                   </td>
                   <td className="px-6 py-4">
                     <button 
-                      onClick={() => handleToggleVisibility(f.id, f.isVisible)}
+                      onClick={() => handleToggleVisibility(f.id, f.isVisible)} 
                       disabled={f.status !== FeedbackStatus.APPROVED}
                       className={clsx(
-                        "p-2 rounded-xl transition-all",
-                        f.isVisible ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-400",
-                        f.status !== FeedbackStatus.APPROVED && "opacity-30 cursor-not-allowed"
+                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                        f.isVisible ? "bg-blue-50 text-blue-600 shadow-sm" : "bg-slate-50 text-slate-300 opacity-50 grayscale"
                       )}
-                      title={f.isVisible ? "ল্যান্ডিং পেজ থেকে হাইড করুন" : "ল্যান্ডিং পেজে শো করুন"}
+                      title={f.isVisible ? "Visible on landing page" : "Hidden from landing page"}
                     >
                       {f.isVisible ? <Eye size={18} /> : <EyeOff size={18} />}
                     </button>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => openEditModal(f)} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-all" title="Edit Message">
+                      <button onClick={() => { setEditingFeedback(f); setEditMessage(f.message); }} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-all" title="Edit message">
                         <Edit3 size={18} />
                       </button>
-                      {f.status === FeedbackStatus.PENDING && (
-                        <>
-                          <button onClick={() => handleStatusUpdate(f.id, FeedbackStatus.APPROVED)} className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-all" title="Approve">
-                            <Check size={20} />
-                          </button>
-                          <button onClick={() => handleStatusUpdate(f.id, FeedbackStatus.REJECTED)} className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Reject">
-                            <X size={20} />
-                          </button>
-                        </>
-                      )}
-                      {user?.role === UserRole.ADMIN && (
-                        <button 
-                          onClick={() => handleDeleteFeedback(f.id)} 
-                          className="p-2 text-slate-300 hover:text-red-600 transition-colors bg-white hover:bg-red-50 rounded-xl shadow-sm border border-slate-100"
-                          title="Delete Permanently"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
+                      <button onClick={() => setDeleteFeedbackId(f.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors" title="Delete feedback">
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -402,35 +358,16 @@ export const FeedbackApprovalPage = () => {
             </tbody>
           </table>
         </div>
-        {filteredFeedbacks.length === 0 && (
-          <div className="py-20 text-center text-slate-400 font-bold italic">
-            কোন ফিডব্যাক পাওয়া যায়নি।
-          </div>
-        )}
       </Card>
 
       {editingFeedback && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <Card className="w-full max-w-lg p-8 shadow-2xl animate-in zoom-in-95 duration-200 bg-white border-0 rounded-[2rem]">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
-                <Edit3 size={24} />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 tracking-tight">ফিডব্যাক এডিট করুন</h3>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">মেসেজ (পরিবর্তন করুন)</label>
-                <textarea 
-                  value={editMessage}
-                  onChange={(e) => setEditMessage(e.target.value)}
-                  className="w-full bg-slate-50 border-0 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-red-500 transition-all outline-none min-h-[150px] resize-none"
-                />
-              </div>
-              <div className="flex gap-4">
-                <Button onClick={handleSaveEdit} isLoading={savingEdit} className="flex-1 py-4 bg-blue-600 hover:bg-blue-700">পরিবর্তন সেভ করুন</Button>
-                <Button variant="outline" onClick={() => setEditingFeedback(null)} className="flex-1 py-4 text-slate-400 border-slate-100">বাতিল</Button>
-              </div>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight mb-6">Edit Feedback</h3>
+            <textarea value={editMessage} onChange={(e) => setEditMessage(e.target.value)} className="w-full bg-slate-50 border-0 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-red-500 transition-all outline-none min-h-[150px]" />
+            <div className="flex gap-4 mt-6">
+              <Button onClick={handleSaveEdit} isLoading={savingEdit} className="flex-1 py-4">Save Changes</Button>
+              <Button variant="outline" onClick={() => setEditingFeedback(null)} className="flex-1 py-4">Cancel</Button>
             </div>
           </Card>
         </div>

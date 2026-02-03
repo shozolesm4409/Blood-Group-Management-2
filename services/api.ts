@@ -48,6 +48,8 @@ const CACHE_KEYS = {
 
 export const ADMIN_EMAIL = 'shozolesm4409@gmail.com'.trim().toLowerCase();
 
+const generateIdNumber = () => `BL-${Math.floor(100000 + Math.random() * 900000)}`;
+
 const createLog = async (action: string, userId: string, userName: string, details: string, userAvatar?: string) => {
   try {
     await addDoc(collection(db, COLLECTIONS.LOGS), {
@@ -298,17 +300,29 @@ export const login = async (email: string, password: string): Promise<User> => {
   const isAdminEmail = normalizedEmail === ADMIN_EMAIL;
 
   if (!userDoc.exists()) {
-    const newUser: User = { id: uid, role: isAdminEmail ? UserRole.ADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isAdminEmail, hasSupportAccess: isAdminEmail, hasFeedbackAccess: isAdminEmail };
+    const newUser: User = { id: uid, idNumber: generateIdNumber(), role: isAdminEmail ? UserRole.ADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isAdminEmail, hasSupportAccess: isAdminEmail, hasFeedbackAccess: isAdminEmail, hasIDCardAccess: isAdminEmail };
     await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
     return newUser;
   }
   const data = userDoc.data() as User;
+
+  if (data.isSuspended) {
+    await signOut(auth);
+    throw new Error("Your account has been suspended by the administrator.");
+  }
+
+  if (!data.idNumber) {
+    const idNumber = generateIdNumber();
+    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { idNumber });
+    data.idNumber = idNumber;
+  }
   if (isAdminEmail && data.role !== UserRole.ADMIN) {
-    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true, hasFeedbackAccess: true, hasSupportAccess: true });
+    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true, hasFeedbackAccess: true, hasSupportAccess: true, hasIDCardAccess: true });
     data.role = UserRole.ADMIN;
     data.hasDirectoryAccess = true;
     data.hasFeedbackAccess = true;
     data.hasSupportAccess = true;
+    data.hasIDCardAccess = true;
   }
   await createLog('LOGIN', uid, data.name, 'Authenticated successfully.', data.avatar);
   return data;
@@ -319,10 +333,15 @@ export const register = async (data: any): Promise<User> => {
   const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
   const uid = userCredential.user.uid;
   const isAdmin = normalizedEmail === ADMIN_EMAIL;
-  const newUser: User = { id: uid, role: isAdmin ? UserRole.ADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isAdmin, hasSupportAccess: isAdmin, hasFeedbackAccess: isAdmin };
+  const newUser: User = { id: uid, idNumber: generateIdNumber(), role: isAdmin ? UserRole.ADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isAdmin, hasSupportAccess: isAdmin, hasFeedbackAccess: isAdmin, hasIDCardAccess: isAdmin };
   await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
   await createLog('REGISTER', uid, data.name, 'Profile initialized.', newUser.avatar);
   return newUser;
+};
+
+export const toggleUserSuspension = async (userId: string, isSuspended: boolean, admin: User) => {
+  await updateDoc(doc(db, COLLECTIONS.USERS, userId), { isSuspended });
+  await createLog('USER_SUSPENSION_TOGGLE', admin.id, admin.name, `User ${userId} suspension set to ${isSuspended}`, admin.avatar);
 };
 
 export const logoutUser = async (user: User | null) => {
@@ -425,6 +444,20 @@ export const handleSupportAccess = async (userId: string, approved: boolean, adm
   if (userSnap.exists()) {
     await updateDoc(userRef, { hasSupportAccess: approved, supportAccessRequested: false });
     await createLog('SUPPORT_ACCESS_UPDATE', admin.id, admin.name, `Support access updated for ${userId}`, admin.avatar);
+  }
+};
+
+export const requestIDCardAccess = async (user: User) => {
+  await updateDoc(doc(db, COLLECTIONS.USERS, user.id), { idCardAccessRequested: true });
+  await createLog('IDCARD_ACCESS_REQUEST', user.id, user.name, 'User requested digital ID card access.', user.avatar);
+};
+
+export const handleIDCardAccess = async (userId: string, approved: boolean, admin: User) => {
+  const userRef = doc(db, COLLECTIONS.USERS, userId);
+  const userSnap = await getDoc(userRef);
+  if (userSnap.exists()) {
+    await updateDoc(userRef, { hasIDCardAccess: approved, idCardAccessRequested: false });
+    await createLog('IDCARD_ACCESS_UPDATE', admin.id, admin.name, `ID Card access updated for ${userId}`, admin.avatar);
   }
 };
 

@@ -20,7 +20,13 @@ import {
   MessageSquareQuote,
   CheckCircle2,
   Monitor,
-  Megaphone
+  Megaphone,
+  Database,
+  UsersRound,
+  ChevronRight,
+  PieChart,
+  Settings,
+  IdCard
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -30,10 +36,13 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [perms, setPerms] = useState<AppPermissions | null>(null);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [pendingUserCount, setPendingUserCount] = useState(0);
-  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
-  const [pendingFeedbackCount, setPendingFeedbackCount] = useState(0);
+  
+  const [counts, setCounts] = useState({
+    donations: 0,
+    access: 0,
+    messages: 0,
+    feedbacks: 0
+  });
 
   useEffect(() => {
     getAppPermissions().then(setPerms);
@@ -42,13 +51,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       const fetchCounts = async () => {
         try {
           const [users, donations, feedbacks] = await Promise.all([getUsers(), getDonations(), getAllFeedbacks()]);
-          const pendingUsers = users.filter(u => u.directoryAccessRequested || u.supportAccessRequested || u.feedbackAccessRequested).length;
-          const pendingDonations = donations.filter(d => d.status === DonationStatus.PENDING).length;
-          const pendingFeedbacks = feedbacks.filter(f => f.status === 'PENDING').length;
-          
-          setNotificationCount(pendingDonations);
-          setPendingUserCount(pendingUsers);
-          setPendingFeedbackCount(pendingFeedbacks);
+          setCounts(prev => ({
+            ...prev,
+            access: users.filter(u => u.directoryAccessRequested || u.supportAccessRequested || u.feedbackAccessRequested || u.idCardAccessRequested).length,
+            donations: donations.filter(d => d.status === DonationStatus.PENDING).length,
+            feedbacks: feedbacks.filter(f => f.status === 'PENDING').length
+          }));
         } catch (e) {
           console.error("Failed to fetch notification counts", e);
         }
@@ -58,7 +66,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
     if (user) {
       const unsubscribeMessages = subscribeToAllIncomingMessages(user.id, (msgs) => {
-        setUnreadMsgCount(msgs.length);
+        setCounts(prev => ({ ...prev, messages: msgs.length }));
       }, (err) => {
         console.debug("Layout message subscription restricted:", err.message);
       });
@@ -71,136 +79,143 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     navigate('/');
   };
 
-  const NavItem = ({ to, icon: Icon, label, badge }: { to: string, icon: any, label: string, badge?: number }) => (
-    <Link
-      to={to}
-      onClick={() => setIsMobileMenuOpen(false)}
-      className={clsx(
-        "flex items-center justify-between px-2 py-2 rounded-l transition-all group",
-        location.pathname === to 
-          ? "bg-red-50 text-red-600 font-bold shadow-sm" 
-          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <Icon size={20} />
-        <span className="text-sm">{label}</span>
-      </div>
-      {badge !== undefined && badge > 0 && (
-        <span className="bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
-          {badge}
-        </span>
-      )}
-    </Link>
+  const NavItem = ({ to, icon: Icon, label, badge }: { to: string, icon: any, label: string, badge?: number }) => {
+    const isActive = location.pathname === to;
+    return (
+      <Link
+        to={to}
+        onClick={() => setIsMobileMenuOpen(false)}
+        className={clsx(
+          "flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group relative",
+          isActive 
+            ? "bg-red-50 text-red-600 font-bold shadow-sm" 
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <Icon size={18} className={clsx(isActive ? "text-red-600" : "text-slate-400 group-hover:text-slate-600")} />
+          <span className="text-[13px] tracking-tight">{label}</span>
+        </div>
+        {badge !== undefined && badge > 0 ? (
+          <span className="bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-lg shadow-sm">
+            {badge}
+          </span>
+        ) : (
+          isActive && <ChevronRight size={14} className="text-red-300" />
+        )}
+      </Link>
+    );
+  };
+
+  const SidebarSection = ({ title, children }: { title: string, children?: React.ReactNode }) => (
+    <div className="space-y-1 mb-6">
+      <h3 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{title}</h3>
+      <div className="space-y-0.5">{children}</div>
+    </div>
   );
 
   const isAdmin = user?.role === UserRole.ADMIN;
   const isEditor = user?.role === UserRole.EDITOR;
 
-  // Optimized sidebar permissions with robust defaults for USER role
   const currentRolePerms: RolePermissions = perms ? (
     isAdmin ? {
-      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true },
+      sidebar: { summary: true, dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true },
       rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canPostNotice: true }
     } : (isEditor ? perms.editor : perms.user)
   ) : {
-    // Immediate fallback for stability while perms load
     sidebar: { dashboard: true, profile: true, history: true, donors: true, feedback: true, myNotice: true },
     rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-[#f8fafc] flex">
       {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
       <aside className={clsx(
-        "fixed lg:static inset-y-0 left-0 z-30 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:transform-none",
+        "fixed lg:static inset-y-0 left-0 z-[70] w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col shadow-2xl lg:shadow-none",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="h-full flex flex-col">
-          <div className="p-3 border-b border-slate-50 flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-100">
-              <Droplet className="text-white fill-current" size={22} />
-            </div>
-            <span className="text-2xl font-black text-slate-900 tracking-tighter">BloodLink</span>
+        <div className="h-20 flex items-center px-6 gap-3 mb-2">
+          <div className="w-10 h-10 bg-red-600 rounded-2xl flex items-center justify-center shadow-xl shadow-red-100 ring-4 ring-red-50">
+            <Droplet className="text-white fill-current" size={22} />
           </div>
+          <div>
+            <span className="text-xl font-black text-slate-900 tracking-tighter block leading-none">BloodLink</span>
+            <span className="text-[9px] font-black text-red-600 uppercase tracking-widest">Management Hub</span>
+          </div>
+        </div>
 
-          <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-10">
+          <SidebarSection title="User Hub">
             {currentRolePerms.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
-            {currentRolePerms.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="My Profile" />}
-            <NavItem to="/donors" icon={Search} label="Donor Search" />
-            
-            {/* My Notice is placed prominently for all users */}
-            {currentRolePerms.sidebar.myNotice && <NavItem to="/notices" icon={Megaphone} label="My Notice" />}
-            
-            {currentRolePerms.sidebar.history && <NavItem to="/my-donations" icon={History} label="Donation History" />}
-            {currentRolePerms.sidebar.supportCenter && <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={unreadMsgCount} />}
-            <NavItem to="/feedback" icon={MessageSquareQuote} label="Experience Feedback" />
-            
-            {(isAdmin || isEditor) && (
-              <>
-                <div className="pt-6 pb-2 px-4">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Management</span>
-                </div>
-                {currentRolePerms.sidebar.landingSettings && <NavItem to="/landing-settings" icon={Monitor} label="Page Customizer" />}
-                {currentRolePerms.sidebar.approveFeedback && (
-                  <NavItem to="/approve-feedback" icon={CheckCircle2} label="Approve Feedback" badge={pendingFeedbackCount} />
-                )}
-                {currentRolePerms.sidebar.users && <NavItem to="/users" icon={Users} label="User Management" badge={pendingUserCount} />}
-                {currentRolePerms.sidebar.manageDonations && (
-                  <NavItem to="/manage-donations" icon={Droplet} label="All Donations" badge={notificationCount} />
-                )}
-                {isAdmin && (
-                  <>
-                    <NavItem to="/notifications" icon={Bell} label="Notification Center" badge={pendingUserCount + pendingFeedbackCount} />
-                    <NavItem to="/deleted-users" icon={Trash2} label="System Archives" />
-                  </>
-                )}
-                {currentRolePerms.sidebar.logs && <NavItem to="/logs" icon={FileText} label="Activity Logs" />}
-              </>
-            )}
-          </nav>
+            {currentRolePerms.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="Account Profile" />}
+            {currentRolePerms.sidebar.history && <NavItem to="/my-donations" icon={History} label="My Donate" />}
+          </SidebarSection>
 
-          <div className="p-3 border-t border-slate-50">
-            <div className="flex items-center gap-4 px-4 py-4 mb-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <div className="w-10 h-10 rounded-full bg-white overflow-hidden flex items-center justify-center text-sm font-bold text-slate-600 flex-shrink-0 border border-slate-200">
-                {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" alt="Me" /> : user?.name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-900 truncate">{user?.name}</p>
-                <p className="text-[10px] font-black text-red-600 uppercase tracking-tight">{user?.role}</p>
-              </div>
+          <SidebarSection title="Community">
+             <NavItem to="/donors" icon={Search} label="Donor Directory" />
+             {currentRolePerms.sidebar.myNotice && <NavItem to="/notices" icon={Megaphone} label="Board Notices" />}
+             {currentRolePerms.sidebar.supportCenter && <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={counts.messages} />}
+             <NavItem to="/feedback" icon={MessageSquareQuote} label="Post Feedback" />
+          </SidebarSection>
+
+          {(isAdmin || isEditor) && (
+            <>
+              <SidebarSection title="Content Admin">
+                {currentRolePerms.sidebar.landingSettings && <NavItem to="/landing-settings" icon={Monitor} label="Page Customizer" />}
+                {currentRolePerms.sidebar.manageDonations && <NavItem to="/manage-donations" icon={Database} label="Donation Records" badge={counts.donations} />}
+                {currentRolePerms.sidebar.approveFeedback && <NavItem to="/approve-feedback" icon={CheckCircle2} label="Moderate Feedback" badge={counts.feedbacks} />}
+              </SidebarSection>
+
+              <SidebarSection title="People Control">
+                {currentRolePerms.sidebar.users && <NavItem to="/users" icon={UsersRound} label="Manage Users" />}
+                {isAdmin && <NavItem to="/notifications" icon={Bell} label="Access Requests" badge={counts.access} />}
+                {isAdmin && <NavItem to="/team-id-cards" icon={IdCard} label="Team ID Cards" />}
+              </SidebarSection>
+
+              <SidebarSection title="System Intel">
+                {isAdmin && <NavItem to="/deleted-users" icon={Trash2} label="System Archives" />}
+                {currentRolePerms.sidebar.logs && <NavItem to="/logs" icon={FileText} label="Activity Logs" />}
+              </SidebarSection>
+            </>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm mb-3">
+            <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-black overflow-hidden border border-red-100">
+              {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : user?.name.charAt(0)}
             </div>
-            <button 
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all active:scale-95"
-            >
-              <LogOut size={20} />
-              Sign Out
-            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-black text-slate-900 truncate">{user?.name}</p>
+              <p className="text-[9px] font-black text-red-500 uppercase tracking-widest">{user?.role}</p>
+            </div>
           </div>
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 py-3 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-colors bg-white rounded-xl border border-slate-200 hover:border-red-100 shadow-sm active:scale-95"
+          >
+            <LogOut size={16} /> Sign Out
+          </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="lg:hidden bg-white border-b border-slate-200 p-3 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-100">
-              <Droplet className="text-white fill-current" size={20} />
+        <header className="lg:hidden bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-50">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-red-600 rounded-xl flex items-center justify-center">
+              <Droplet className="text-white fill-current" size={18} />
             </div>
-            <span className="font-black text-slate-900 tracking-tighter text-xl">BloodLink</span>
+            <span className="font-black text-slate-900 tracking-tighter text-lg">BloodLink</span>
           </div>
           <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-slate-50 rounded-xl border border-slate-100">
-            <Menu size={24} className="text-slate-700" />
+            <Menu size={20} className="text-slate-700" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-auto p-1 lg:p-4">
+        <div className="flex-1 overflow-auto p-4 lg:p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
