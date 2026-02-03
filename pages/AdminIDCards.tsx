@@ -25,19 +25,19 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
            <div className="absolute top-[10%] right-[-30%] w-[100%] h-[100%] bg-red-400/20 rounded-[5rem] rotate-[-10deg]"></div>
         </div>
         
-        {/* Logo & Org Name */}
-        <div className="relative z-10 p-5 flex flex-col items-center">
-           <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-2 ring-4 ring-white/10">
-              <Droplet size={24} className="text-red-600 fill-current" />
+        {/* Logo & Org Name - Positioned higher to avoid photo overlap */}
+        <div className="relative z-10 pt-6 px-5 flex flex-col items-center">
+           <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-1.5 ring-4 ring-white/10">
+              <Droplet size={22} className="text-red-600 fill-current" />
            </div>
            <h3 className="text-white font-black tracking-tighter text-xl leading-none">BLOODLINK</h3>
-           <p className="text-[7px] text-red-100 font-black uppercase tracking-[0.3em] mt-1.5 opacity-90">Official Digital Identity</p>
+           <p className="text-[7px] text-red-100 font-black uppercase tracking-[0.3em] mt-1 opacity-90">Official Digital Identity</p>
         </div>
       </div>
 
-      {/* Profile Photo Area - Reduced size to prevent overlapping branding */}
-      <div className="relative z-20 -mt-10 flex justify-center">
-         <div className="w-24 h-24 bg-white rounded-2xl p-1 shadow-2xl ring-1 ring-slate-100">
+      {/* Profile Photo Area - Reduced size (w-20) and adjusted negative margin (-mt-8) */}
+      <div className="relative z-20 -mt-8 flex justify-center">
+         <div className="w-20 h-20 bg-white rounded-2xl p-1 shadow-2xl ring-1 ring-slate-100">
             <div className="w-full h-full bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white">
               {user.avatar ? (
                 <img 
@@ -51,7 +51,7 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
                   }}
                 />
               ) : (
-                <UserIcon size={36} className="text-slate-300" />
+                <UserIcon size={32} className="text-slate-300" />
               )}
             </div>
          </div>
