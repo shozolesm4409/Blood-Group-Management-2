@@ -18,7 +18,7 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
       className="id-card-container relative w-[320px] h-[500px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 flex flex-col font-sans select-none"
     >
       {/* Top Brand Area (Deep Red Theme) */}
-      <div className="h-[160px] bg-[#991b1b] relative overflow-hidden">
+      <div className="h-[150px] bg-[#991b1b] relative overflow-hidden">
         {/* Decorative Professional Curves */}
         <div className="absolute top-0 right-0 w-full h-full">
            <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[120%] bg-red-900 rounded-[5rem] rotate-[15deg] opacity-40"></div>
@@ -26,18 +26,18 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
         </div>
         
         {/* Logo & Org Name */}
-        <div className="relative z-10 p-6 flex flex-col items-center">
-           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-2 ring-4 ring-white/10">
-              <Droplet size={28} className="text-red-600 fill-current" />
+        <div className="relative z-10 p-5 flex flex-col items-center">
+           <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-2 ring-4 ring-white/10">
+              <Droplet size={24} className="text-red-600 fill-current" />
            </div>
            <h3 className="text-white font-black tracking-tighter text-xl leading-none">BLOODLINK</h3>
-           <p className="text-[8px] text-red-100 font-black uppercase tracking-[0.3em] mt-1 opacity-90">Official Digital Identity</p>
+           <p className="text-[7px] text-red-100 font-black uppercase tracking-[0.3em] mt-1.5 opacity-90">Official Digital Identity</p>
         </div>
       </div>
 
-      {/* Profile Photo Area - Square as requested by user */}
-      <div className="relative z-20 -mt-16 flex justify-center">
-         <div className="w-32 h-32 bg-white rounded-2xl p-1 shadow-2xl ring-1 ring-slate-100">
+      {/* Profile Photo Area - Reduced size to prevent overlapping branding */}
+      <div className="relative z-20 -mt-10 flex justify-center">
+         <div className="w-24 h-24 bg-white rounded-2xl p-1 shadow-2xl ring-1 ring-slate-100">
             <div className="w-full h-full bg-slate-50 rounded-xl overflow-hidden flex items-center justify-center border-2 border-white">
               {user.avatar ? (
                 <img 
@@ -51,7 +51,7 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
                   }}
                 />
               ) : (
-                <UserIcon size={48} className="text-slate-300" />
+                <UserIcon size={36} className="text-slate-300" />
               )}
             </div>
          </div>
