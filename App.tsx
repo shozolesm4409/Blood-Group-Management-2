@@ -14,6 +14,7 @@ import { AdminArchives } from './pages/AdminArchives';
 import { AdminPermissions } from './pages/AdminPermissions';
 import { AdminPageCustomizer } from './pages/AdminPageCustomizer';
 import { AdminSummary } from './pages/AdminSummary';
+import { AdminRolePermissions } from './pages/AdminRolePermissions';
 import { DonorDirectory } from './pages/DonorDirectory';
 import { MyDonations } from './pages/MyDonations';
 import { SupportCenter } from './pages/SupportCenter';
@@ -28,6 +29,10 @@ import { UserRole } from './types';
 const ProtectedRoute = ({ children, allowedRoles }: { children?: React.ReactNode, allowedRoles?: UserRole[] }) => {
   const { isAuthenticated, user } = useAuth();
   if (!isAuthenticated) return <Navigate to="/" replace />;
+  
+  // SuperAdmin bypasses all role restrictions
+  if (user?.role === UserRole.SUPERADMIN) return <Layout>{children}</Layout>;
+
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -47,7 +52,11 @@ const App = () => {
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          
+          {/* Password Reset Routes */}
           <Route path="/reset" element={<ResetPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          
           <Route path="/public-feedbacks" element={<PublicFeedbackPage />} />
           
           {/* Public Verification Route with PublicLayout */}
@@ -72,6 +81,7 @@ const App = () => {
           <Route path="/admin/verify/:idNumber?" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><VerifyMember /></ProtectedRoute>} />
           <Route path="/verification-history" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminVerificationHistory /></ProtectedRoute>} />
           
+          <Route path="/role-permissions" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminRolePermissions /></ProtectedRoute>} />
           <Route path="/deleted-users" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminArchives /></ProtectedRoute>} />
           <Route path="/logs" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.EDITOR]}><AdminSystemLogs /></ProtectedRoute>} />
           <Route path="/team-id-cards" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminIDCards /></ProtectedRoute>} />

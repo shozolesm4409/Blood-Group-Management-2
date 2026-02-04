@@ -17,7 +17,7 @@ import {
   query, 
   where, 
   addDoc, 
-  orderBy,
+  orderBy, 
   limit,
   onSnapshot,
   writeBatch
@@ -49,8 +49,6 @@ const CACHE_KEYS = {
 
 export const ADMIN_EMAIL = 'shozolesm4409@gmail.com'.trim().toLowerCase();
 
-const generateIdNumber = () => `BL-${Math.floor(100000 + Math.random() * 900000)}`;
-
 const createLog = async (action: string, userId: string, userName: string, details: string, userAvatar?: string) => {
   try {
     await addDoc(collection(db, COLLECTIONS.LOGS), {
@@ -66,7 +64,22 @@ const createLog = async (action: string, userId: string, userName: string, detai
   }
 };
 
-// --- Verification Logs ---
+export const initiatePasswordResetLink = async (email: string): Promise<void> => {
+  const normalizedEmail = email.toLowerCase().trim();
+  const q = query(collection(db, COLLECTIONS.USERS), where('email', '==', normalizedEmail));
+  const snap = await getDocs(q);
+  if (snap.empty) {
+    throw new Error("এই ইমেইলটি আমাদের সিস্টেমে খুঁজে পাওয়া যায়নি।");
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, normalizedEmail);
+  } catch (error: any) {
+    console.error("Firebase Auth Email Error:", error);
+    throw new Error("ইমেইল পাঠানো সম্ভব হয়নি। দয়া করে কিছুক্ষণ পর চেষ্টা করুন।");
+  }
+};
+
 export const logVerificationCheck = async (memberId: string, memberName: string, bloodGroup: string) => {
   try {
     await addDoc(collection(db, COLLECTIONS.VERIFICATION_LOGS), {
@@ -86,7 +99,6 @@ export const getVerificationLogs = async () => {
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-// --- Notices ---
 export const getNotices = async (): Promise<Notice[]> => {
   const q = query(collection(db, COLLECTIONS.NOTICES), orderBy('timestamp', 'desc'));
   const snap = await getDocs(q);
@@ -138,14 +150,13 @@ export const restoreDeletedNotice = async (id: string, admin: User): Promise<voi
   }
 };
 
-export const subscribeToNotices = (callback: (notices: Notice[]) => void) => {
+export const subscribeToNotices = (callback: (notices: Notice[]) => void, onError?: (err: any) => void) => {
   const q = query(collection(db, COLLECTIONS.NOTICES), orderBy('timestamp', 'desc'));
   return onSnapshot(q, snap => {
     callback(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notice)));
-  });
+  }, onError);
 };
 
-// --- Rest of API ---
 export const getCachedFeedbacks = (): DonationFeedback[] => {
   const cached = localStorage.getItem(CACHE_KEYS.APPROVED_FEEDBACKS);
   return cached ? JSON.parse(cached) : [];
@@ -158,10 +169,6 @@ export const getUserProfile = async (uid: string): Promise<User | null> => {
   } catch (e) {
     return null;
   }
-};
-
-export const resetPassword = async (email: string) => {
-  await sendPasswordResetEmail(auth, email);
 };
 
 export const changePassword = async (userId: string, userName: string, current: string, newPass: string) => {
@@ -289,11 +296,15 @@ export const getAppPermissions = async (): Promise<AppPermissions> => {
 
   const DEFAULT_PERMS: AppPermissions = {
     user: { 
-      sidebar: { dashboard: true, profile: true, history: true, donors: true, directoryPermissions: false, supportCenter: false, feedback: true, approveFeedback: false, myNotice: true }, 
+      sidebar: { dashboard: true, profile: true, history: true, donors: true, supportCenter: true, feedback: true, myNotice: true }, 
       rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canUseMessenger: true, canUseSystemSupport: true, canPostNotice: false }
     },
     editor: { 
-      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: false, supportCenter: false, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true }, 
+      sidebar: { dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true }, 
+      rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canUseMessenger: true, canUseSystemSupport: true, canPostNotice: true }
+    },
+    admin: {
+      sidebar: { summary: true, dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, rolePermissions: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true, notifications: true, adminVerify: true, verificationHistory: true, teamIdCards: true, deletedUsers: true },
       rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canUseMessenger: true, canUseSystemSupport: true, canPostNotice: true }
     }
   };
@@ -302,10 +313,7 @@ export const getAppPermissions = async (): Promise<AppPermissions> => {
     const docRef = doc(db, COLLECTIONS.SETTINGS, 'permissions');
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      const data = docSnap.data() as AppPermissions;
-      if (data.user?.sidebar) data.user.sidebar.myNotice = data.user.sidebar.myNotice ?? true;
-      if (data.editor?.sidebar) data.editor.sidebar.myNotice = data.editor.sidebar.myNotice ?? true;
-      return data;
+      return docSnap.data() as AppPermissions;
     }
     return DEFAULT_PERMS;
   } catch {
@@ -318,10 +326,10 @@ export const login = async (email: string, password: string): Promise<User> => {
   const uid = userCredential.user.uid;
   const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, uid));
   const normalizedEmail = email.trim().toLowerCase();
-  const isAdminEmail = normalizedEmail === ADMIN_EMAIL;
+  const isSuperAdminEmail = normalizedEmail === ADMIN_EMAIL;
 
   if (!userDoc.exists()) {
-    const newUser: User = { id: uid, idNumber: generateIdNumber(), role: isAdminEmail ? UserRole.ADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isAdminEmail, hasSupportAccess: isAdminEmail, hasFeedbackAccess: isAdminEmail, hasIDCardAccess: isAdminEmail };
+    const newUser: User = { id: uid, idNumber: `BL-${Math.floor(100000 + Math.random() * 900000)}`, role: isSuperAdminEmail ? UserRole.SUPERADMIN : UserRole.USER, name: userCredential.user.displayName || normalizedEmail.split('@')[0], email: normalizedEmail, bloodGroup: BloodGroup.O_POS, location: 'Unspecified', phone: '', hasDirectoryAccess: isSuperAdminEmail, hasSupportAccess: isSuperAdminEmail, hasFeedbackAccess: isSuperAdminEmail, hasIDCardAccess: isSuperAdminEmail };
     await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
     return newUser;
   }
@@ -332,19 +340,11 @@ export const login = async (email: string, password: string): Promise<User> => {
     throw new Error("Your account has been suspended by the administrator.");
   }
 
-  if (!data.idNumber) {
-    const idNumber = generateIdNumber();
-    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { idNumber });
-    data.idNumber = idNumber;
+  if (isSuperAdminEmail && data.role !== UserRole.SUPERADMIN) {
+     await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.SUPERADMIN });
+     data.role = UserRole.SUPERADMIN;
   }
-  if (isAdminEmail && data.role !== UserRole.ADMIN) {
-    await updateDoc(doc(db, COLLECTIONS.USERS, uid), { role: UserRole.ADMIN, hasDirectoryAccess: true, hasFeedbackAccess: true, hasSupportAccess: true, hasIDCardAccess: true });
-    data.role = UserRole.ADMIN;
-    data.hasDirectoryAccess = true;
-    data.hasFeedbackAccess = true;
-    data.hasSupportAccess = true;
-    data.hasIDCardAccess = true;
-  }
+
   await createLog('LOGIN', uid, data.name, 'Authenticated successfully.', data.avatar);
   return data;
 };
@@ -353,8 +353,8 @@ export const register = async (data: any): Promise<User> => {
   const normalizedEmail = data.email.trim().toLowerCase();
   const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, data.password);
   const uid = userCredential.user.uid;
-  const isAdmin = normalizedEmail === ADMIN_EMAIL;
-  const newUser: User = { id: uid, idNumber: generateIdNumber(), role: isAdmin ? UserRole.ADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isAdmin, hasSupportAccess: isAdmin, hasFeedbackAccess: isAdmin, hasIDCardAccess: isAdmin };
+  const isSuperAdmin = normalizedEmail === ADMIN_EMAIL;
+  const newUser: User = { id: uid, idNumber: `BL-${Math.floor(100000 + Math.random() * 900000)}`, role: isSuperAdmin ? UserRole.SUPERADMIN : UserRole.USER, name: data.name, email: normalizedEmail, bloodGroup: data.bloodGroup as BloodGroup, phone: data.phone, location: data.location, avatar: data.avatar || '', hasDirectoryAccess: isSuperAdmin, hasSupportAccess: isSuperAdmin, hasFeedbackAccess: isSuperAdmin, hasIDCardAccess: isSuperAdmin };
   await setDoc(doc(db, COLLECTIONS.USERS, uid), newUser);
   await createLog('REGISTER', uid, data.name, 'Profile initialized.', newUser.avatar);
   return newUser;
@@ -490,10 +490,7 @@ export const subscribeToAllIncomingMessages = (userId: string, callback: (msgs: 
 };
 
 export const adminForceChangePassword = async (userId: string, newPass: string, admin: User) => {
-  // In a real Firebase setup, this would be a cloud function
-  // For this prototype, we update a flag or log the administrative action
   await createLog('ADMIN_FORCE_PASSWORD_CHANGE', admin.id, admin.name, `Administrative PIN reset for user ${userId}.`, admin.avatar);
-  // Simulate the update by adding a marker in Firestore
   await updateDoc(doc(db, COLLECTIONS.USERS, userId), { lastPasswordReset: new Date().toISOString() });
 };
 
@@ -643,7 +640,7 @@ export const markMessagesAsRead = async (roomId: string, userId: string) => {
 };
 
 export const updateAppPermissions = async (perms: AppPermissions, admin: User): Promise<{ synced: boolean, error?: string }> => {
-  const isSuperAdmin = admin.email.trim().toLowerCase() === ADMIN_EMAIL;
+  const isSuperAdmin = admin.role === UserRole.SUPERADMIN || admin.email.trim().toLowerCase() === ADMIN_EMAIL;
   if (!isSuperAdmin) throw new Error("Only the System Administrator can modify global permissions.");
   try {
     const docRef = doc(db, COLLECTIONS.SETTINGS, 'permissions');

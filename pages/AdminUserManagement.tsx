@@ -6,64 +6,17 @@ import {
   deleteUserRecord, 
   updateUserProfile, 
   adminForceChangePassword, 
-  getAppPermissions, 
-  updateAppPermissions,
   handleDirectoryAccess,
   handleSupportAccess,
   handleFeedbackAccess,
   handleIDCardAccess,
-  toggleUserSuspension
+  toggleUserSuspension,
+  ADMIN_EMAIL
 } from '../services/api';
 import { Card, Badge, Button, Input, Toast, useToast, ConfirmModal, Select } from '../components/UI';
-import { User, UserRole, BloodGroup, AppPermissions, RolePermissions } from '../types';
-import { Search, User as UserIcon, RotateCcw, Trash2, Pencil, Key, Layout, Shield, ShieldCheck, UserCheck, MessageSquare, LifeBuoy, X, Edit2, Ban, ShieldAlert, IdCard } from 'lucide-react';
+import { User, UserRole, BloodGroup } from '../types';
+import { Search, User as UserIcon, Trash2, Key, Layout, Shield, ShieldCheck, UserCheck, MessageSquare, LifeBuoy, X, Edit2, Ban, IdCard, MoreVertical, Phone, MapPin } from 'lucide-react';
 import clsx from 'clsx';
-
-const RulesConfigurator = ({ role, currentPerms, onSave, isLoading }: { role: 'user' | 'editor', currentPerms: RolePermissions, onSave: (p: RolePermissions) => void, isLoading: boolean }) => {
-  const [localPerms, setLocalPerms] = useState<RolePermissions>(currentPerms);
-  useEffect(() => { setLocalPerms(currentPerms); }, [currentPerms]);
-
-  const toggleSidebar = (key: keyof RolePermissions['sidebar']) => {
-    setLocalPerms({ ...localPerms, sidebar: { ...localPerms.sidebar, [key]: !localPerms.sidebar[key] } });
-  };
-  const toggleRule = (key: keyof RolePermissions['rules']) => {
-    setLocalPerms({ ...localPerms, rules: { ...localPerms.rules, [key]: !localPerms.rules[key] } });
-  };
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Card className="p-8 border-0 shadow-xl bg-white rounded-3xl">
-        <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3">
-          <Layout size={20} className="text-slate-400" /> Sidebar Visibility
-        </h3>
-        <div className="space-y-3">
-          {Object.entries(localPerms.sidebar).map(([key, value]) => (
-            <div key={key} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50 hover:bg-slate-50 transition-colors">
-              <span className="text-sm font-bold text-slate-700 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-              <input type="checkbox" checked={value} onChange={() => toggleSidebar(key as any)} className="w-5 h-5 accent-red-600 rounded cursor-pointer" />
-            </div>
-          ))}
-        </div>
-      </Card>
-      <Card className="p-8 border-0 shadow-xl bg-white rounded-3xl flex flex-col">
-        <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3">
-          <Shield size={20} className="text-slate-400" /> Functional Privileges
-        </h3>
-        <div className="space-y-3 flex-1">
-          {Object.entries(localPerms.rules).map(([key, value]) => (
-            <div key={key} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50 hover:bg-slate-50 transition-colors">
-              <span className="text-sm font-bold text-slate-700 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-              <input type="checkbox" checked={value} onChange={() => toggleRule(key as any)} className="w-5 h-5 accent-red-600 rounded cursor-pointer" />
-            </div>
-          ))}
-        </div>
-        <div className="mt-10">
-          <Button onClick={() => onSave(localPerms)} isLoading={isLoading} className="w-full py-5 rounded-2xl bg-red-600 hover:bg-red-700 text-base shadow-xl">COMMIT GLOBAL RULES</Button>
-        </div>
-      </Card>
-    </div>
-  );
-};
 
 const AccessHub = ({ users, onAction }: { users: User[], onAction: (uid: string, type: 'directory' | 'support' | 'feedback' | 'idcard', approve: boolean) => void }) => {
   const AccessItem = ({ title, requested, has, type, uid, icon: Icon, color }: any) => (
@@ -112,7 +65,7 @@ const AccessHub = ({ users, onAction }: { users: User[], onAction: (uid: string,
               <div className="w-14 h-14 rounded-2xl bg-slate-100 border-2 border-white shadow-md overflow-hidden flex items-center justify-center font-black text-slate-400">
                 {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : u.name.charAt(0)}
               </div>
-              <div className={clsx("absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm", u.role === UserRole.ADMIN ? "bg-red-500" : (u.role === UserRole.EDITOR ? "bg-blue-500" : "bg-green-500"))}></div>
+              <div className={clsx("absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm", u.role === UserRole.SUPERADMIN ? "bg-purple-600" : (u.role === UserRole.ADMIN ? "bg-red-500" : (u.role === UserRole.EDITOR ? "bg-blue-500" : "bg-green-500")))}></div>
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-lg font-black text-slate-900 truncate tracking-tight mb-0.5">{u.name}</h3>
@@ -136,30 +89,29 @@ export const AdminUserManagement = () => {
   const { user: admin } = useAuth();
   const { toastState, showToast, hideToast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
-  const [permissions, setPermissions] = useState<AppPermissions | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'users' | 'user-rules' | 'editor-rules' | 'access-hub'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'access-hub'>('users');
   
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [pwdUser, setPwdUser] = useState<User | null>(null);
   const [suspendUserId, setSuspendUserId] = useState<{id: string, current: boolean} | null>(null);
   const [newPassword, setNewPassword] = useState('');
-  
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [u, p] = await Promise.all([getUsers(), getAppPermissions()]);
+      const u = await getUsers();
       setUsers(u);
-      setPermissions(p);
     } catch (e) { showToast("Failed to fetch data", "error"); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const isSuperAdminViewer = admin?.role === UserRole.SUPERADMIN || admin?.email.trim().toLowerCase() === ADMIN_EMAIL;
 
   const handleDelete = async () => {
     if (!admin || !deleteUserId) return;
@@ -187,23 +139,15 @@ export const AdminUserManagement = () => {
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     if (!admin) return;
+    if (newRole === UserRole.SUPERADMIN && !isSuperAdminViewer) {
+      showToast("Only a SuperAdmin can assign this role.", "error");
+      return;
+    }
     try {
       await updateUserProfile(userId, { role: newRole }, admin);
       showToast("Role updated.");
       fetchData();
     } catch (e) { showToast("Update failed.", "error"); }
-  };
-
-  const handleSavePermissions = async (role: 'user' | 'editor', newRolePerms: RolePermissions) => {
-    if (!admin || !permissions) return;
-    setActionLoading(true);
-    try {
-      const updated = { ...permissions, [role]: newRolePerms };
-      await updateAppPermissions(updated, admin);
-      setPermissions(updated);
-      showToast(`${role} rules updated.`);
-    } catch (e) { showToast("Update failed.", "error"); }
-    finally { setActionLoading(false); }
   };
 
   const handleAccessAction = async (uid: string, type: 'directory' | 'support' | 'feedback' | 'idcard', approve: boolean) => {
@@ -274,7 +218,6 @@ export const AdminUserManagement = () => {
         isLoading={actionLoading} 
       />
 
-      {/* Edit User Details Modal */}
       {editUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <Card className="w-full max-w-xl p-8 shadow-2xl animate-in zoom-in-95 duration-200 bg-white border-0 rounded-[2.5rem]">
@@ -300,7 +243,6 @@ export const AdminUserManagement = () => {
         </div>
       )}
 
-      {/* Force Password Change Modal */}
       {pwdUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
           <Card className="w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200 bg-white border-0 rounded-[2.5rem]">
@@ -310,13 +252,7 @@ export const AdminUserManagement = () => {
               <p className="text-sm text-slate-500 font-medium">Resetting password for <span className="text-red-600 font-bold">{pwdUser.name}</span></p>
             </div>
             <div className="space-y-6">
-              <Input 
-                type="password" 
-                label="New Password / PIN" 
-                placeholder="Enter strong password..." 
-                value={newPassword} 
-                onChange={e => setNewPassword(e.target.value)} 
-              />
+              <Input type="password" label="New Password / PIN" placeholder="Enter strong password..." value={newPassword} onChange={e => setNewPassword(e.target.value)} />
               <div className="flex gap-4">
                 <Button onClick={handleForcePassword} isLoading={actionLoading} disabled={!newPassword} className="flex-1 py-4 rounded-2xl">Confirm Reset</Button>
                 <Button variant="outline" onClick={() => { setPwdUser(null); setNewPassword(''); }} className="flex-1 py-4 rounded-2xl">Cancel</Button>
@@ -332,8 +268,8 @@ export const AdminUserManagement = () => {
           <p className="text-sm text-slate-500 font-medium">Control global access and system privileges.</p>
         </div>
         <div className="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner border border-slate-200 overflow-x-auto no-scrollbar">
-          {['users', 'user-rules', 'editor-rules', 'access-hub'].map((t: any) => (
-            <button key={t} onClick={() => setActiveTab(t)} className={clsx("px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", activeTab === t ? "bg-white shadow-md text-red-600" : "text-slate-500")}>
+          {['users', 'access-hub'].map((t: any) => (
+            <button key={t} onClick={() => setActiveTab(t)} className={clsx("px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap", activeTab === t ? "bg-white shadow-md text-red-600" : "text-slate-500")}>
               {t.replace('-', ' ')}
             </button>
           ))}
@@ -343,7 +279,9 @@ export const AdminUserManagement = () => {
       {activeTab === 'users' && (
         <div className="space-y-6">
           <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} /><input type="text" placeholder="Search users by name or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold outline-none shadow-sm" /></div>
-          <Card className="overflow-hidden border-0 shadow-lg bg-white rounded-[2rem]">
+          
+          {/* Desktop Table View */}
+          <Card className="hidden lg:block overflow-hidden border-0 shadow-lg bg-white rounded-[2rem]">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-widest">
                 <tr><th className="px-6 py-5">Profile</th><th className="px-6 py-5">Email</th><th className="px-6 py-5">Role</th><th className="px-6 py-5 text-right">Actions</th></tr>
@@ -365,18 +303,23 @@ export const AdminUserManagement = () => {
                     </td>
                     <td className="px-6 py-5 text-slate-500 font-bold">{u.email}</td>
                     <td className="px-6 py-5">
-                      <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)} className="bg-transparent border border-slate-200 rounded-lg px-2 py-1 font-black text-[10px] uppercase tracking-widest outline-none cursor-pointer text-slate-700">
-                        {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                      <select 
+                        value={u.role} 
+                        onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)} 
+                        disabled={(u.role === UserRole.SUPERADMIN && !isSuperAdminViewer) || (u.email === ADMIN_EMAIL)}
+                        className="bg-transparent border border-slate-200 rounded-lg px-2 py-1 font-black text-[10px] uppercase tracking-widest outline-none cursor-pointer text-slate-700 disabled:opacity-50"
+                      >
+                        {Object.values(UserRole).filter(r => r !== UserRole.SUPERADMIN || isSuperAdminViewer).map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
                       </select>
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex justify-end gap-2">
-                         <button onClick={() => setSuspendUserId({id: u.id, current: !!u.isSuspended})} title={u.isSuspended ? "Unsuspend User" : "Suspend User"} className={clsx("p-2 rounded-xl transition-all", u.isSuspended ? "text-green-600 hover:bg-green-50" : "text-red-400 hover:bg-red-50")}>
-                           <Ban size={18} />
-                         </button>
-                         <button onClick={() => setEditUser(u)} title="Edit User" className="p-2 text-slate-300 hover:text-blue-600 transition-colors"><Edit2 size={18} /></button>
-                         <button onClick={() => setPwdUser(u)} title="Change Password" className="p-2 text-slate-300 hover:text-orange-500 transition-colors"><Key size={18} /></button>
-                         <button onClick={() => setDeleteUserId(u.id)} disabled={u.email === admin?.email} title="Delete User" className="p-2 text-slate-300 hover:text-red-600 disabled:opacity-0 transition-colors"><Trash2 size={18} /></button>
+                         <button onClick={() => setSuspendUserId({id: u.id, current: !!u.isSuspended})} disabled={u.role === UserRole.SUPERADMIN} className={clsx("p-2 rounded-xl transition-all", u.isSuspended ? "text-green-600 hover:bg-green-50" : "text-red-400 hover:bg-red-50", u.role === UserRole.SUPERADMIN && "opacity-0 pointer-events-none")}><Ban size={18} /></button>
+                         <button onClick={() => setEditUser(u)} disabled={u.role === UserRole.SUPERADMIN && !isSuperAdminViewer} title="Edit User" className="p-2 text-slate-300 hover:text-blue-600 transition-colors disabled:opacity-20"><Edit2 size={18} /></button>
+                         <button onClick={() => setPwdUser(u)} disabled={u.role === UserRole.SUPERADMIN && !isSuperAdminViewer} title="Change Password" className="p-2 text-slate-300 hover:text-orange-500 transition-colors disabled:opacity-20"><Key size={18} /></button>
+                         <button onClick={() => setDeleteUserId(u.id)} disabled={u.role === UserRole.SUPERADMIN || u.email === admin?.email} title="Delete User" className="p-2 text-slate-300 hover:text-red-600 disabled:opacity-0 transition-colors"><Trash2 size={18} /></button>
                       </div>
                     </td>
                   </tr>
@@ -384,11 +327,73 @@ export const AdminUserManagement = () => {
               </tbody>
             </table>
           </Card>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-4">
+             {filteredUsers.map(u => (
+               <Card key={u.id} className={clsx("p-6 border-0 shadow-lg bg-white rounded-[2.5rem] relative overflow-hidden", u.isSuspended && "opacity-75")}>
+                 <div className="flex items-center justify-between mb-6">
+                   <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden border-2 border-white shadow-md flex items-center justify-center relative">
+                        {u.avatar ? <img src={u.avatar} className="w-full h-full object-cover" /> : <UserIcon size={24} className="text-slate-300" />}
+                        {u.isSuspended && <div className="absolute inset-0 bg-red-600/20 flex items-center justify-center text-red-600"><Ban size={18}/></div>}
+                      </div>
+                      <div>
+                        <p className="font-black text-slate-900 text-lg leading-tight">{u.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 truncate max-w-[180px]">{u.email}</p>
+                      </div>
+                   </div>
+                   <div className="absolute top-4 right-4">
+                     <Badge color={u.role === UserRole.SUPERADMIN ? 'red' : (u.role === UserRole.ADMIN ? 'red' : (u.role === UserRole.EDITOR ? 'blue' : 'green'))} className="text-[8px] px-3 py-1 ring-4 ring-slate-50">
+                       {u.role}
+                     </Badge>
+                   </div>
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-3 mb-6">
+                    <div className="bg-slate-50 p-3 rounded-2xl flex items-center gap-2 border border-slate-100">
+                       <Shield size={14} className="text-red-500" />
+                       <span className="text-[10px] font-black text-slate-700">{u.bloodGroup} Group</span>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-2xl flex items-center gap-2 border border-slate-100">
+                       <MapPin size={14} className="text-blue-500" />
+                       <span className="text-[10px] font-bold text-slate-600 truncate">{u.location}</span>
+                    </div>
+                 </div>
+
+                 <div className="flex items-center justify-between pt-5 border-t border-slate-100 gap-3">
+                    <select 
+                      value={u.role} 
+                      onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)} 
+                      disabled={(u.role === UserRole.SUPERADMIN && !isSuperAdminViewer) || (u.email === ADMIN_EMAIL)}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 font-black text-[10px] uppercase tracking-widest outline-none cursor-pointer text-slate-700 shadow-inner"
+                    >
+                      {Object.values(UserRole).filter(r => r !== UserRole.SUPERADMIN || isSuperAdminViewer).map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                    
+                    <div className="flex items-center gap-2">
+                       <button onClick={() => setSuspendUserId({id: u.id, current: !!u.isSuspended})} disabled={u.role === UserRole.SUPERADMIN} className={clsx("p-3 rounded-2xl transition-all shadow-md", u.isSuspended ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
+                         <Ban size={20} />
+                       </button>
+                       <button onClick={() => setEditUser(u)} disabled={u.role === UserRole.SUPERADMIN && !isSuperAdminViewer} className="p-3 rounded-2xl bg-white border border-slate-100 text-blue-600 shadow-md">
+                         <Edit2 size={20} />
+                       </button>
+                       <button onClick={() => setPwdUser(u)} disabled={u.role === UserRole.SUPERADMIN && !isSuperAdminViewer} className="p-3 rounded-2xl bg-white border border-slate-100 text-orange-600 shadow-md">
+                         <Key size={20} />
+                       </button>
+                       <button onClick={() => setDeleteUserId(u.id)} disabled={u.role === UserRole.SUPERADMIN || u.email === admin?.email} className="p-3 rounded-2xl bg-white border border-slate-100 text-red-600 shadow-md">
+                         <Trash2 size={20} />
+                       </button>
+                    </div>
+                 </div>
+               </Card>
+             ))}
+          </div>
         </div>
       )}
 
-      {activeTab === 'user-rules' && permissions && <RulesConfigurator role="user" currentPerms={permissions.user} onSave={(p) => handleSavePermissions('user', p)} isLoading={actionLoading} />}
-      {activeTab === 'editor-rules' && permissions && <RulesConfigurator role="editor" currentPerms={permissions.editor} onSave={(p) => handleSavePermissions('editor', p)} isLoading={actionLoading} />}
       {activeTab === 'access-hub' && <AccessHub users={users} onAction={handleAccessAction} />}
     </div>
   );

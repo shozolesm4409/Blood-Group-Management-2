@@ -2,11 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { UserRole, DonationRecord, DonationStatus, User, BloodGroup } from '../types';
-import { getDonations, getUserDonations, getUsers, handleDirectoryAccess, handleSupportAccess, handleFeedbackAccess, handleIDCardAccess, updateDonationStatus } from '../services/api';
+import { getDonations, getUserDonations, getUsers, handleDirectoryAccess, handleSupportAccess, handleFeedbackAccess, handleIDCardAccess, updateDonationStatus, ADMIN_EMAIL } from '../services/api';
 import { generateDonationInsight } from '../services/geminiService';
 import { Card, Badge, Button } from '../components/UI';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Droplet, Users, TrendingUp, Sparkles, Trophy, ArrowRight, CheckCircle, BellRing, Clock, ShieldCheck, Check, X, HeartPulse, History, Activity, Heart, Calendar, Award, Shield, Edit, User as UserIcon, UserCheck, ShieldCheck as ShieldIcon, IdCard } from 'lucide-react';
+import { Droplet, Users, TrendingUp, Sparkles, Trophy, ArrowRight, CheckCircle, BellRing, Clock, ShieldCheck, Check, X, HeartPulse, History, Activity, Heart, Calendar, Award, Shield, Edit, User as UserIcon, UserCheck, ShieldCheck as ShieldIcon, IdCard, LayoutList, Fingerprint } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -20,7 +20,8 @@ export const Dashboard = () => {
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
 
-  const isAdminOrEditor = user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR;
+  const isSuperAdmin = user?.role === UserRole.SUPERADMIN || user?.email.trim().toLowerCase() === ADMIN_EMAIL;
+  const isManagement = isSuperAdmin || user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR;
 
   const fetchData = async () => {
     try {
@@ -34,7 +35,7 @@ export const Dashboard = () => {
       setAllDonations(globalDons);
       setAllUsers(u);
       
-      if (isAdminOrEditor) {
+      if (isManagement) {
         const directoryReqs = u.filter(usr => usr.directoryAccessRequested).map(usr => ({ ...usr, type: 'ACCESS', accessType: 'Directory' }));
         const supportReqs = u.filter(usr => usr.supportAccessRequested).map(usr => ({ ...usr, type: 'ACCESS', accessType: 'Support' }));
         const feedbackReqs = u.filter(usr => usr.feedbackAccessRequested).map(usr => ({ ...usr, type: 'ACCESS', accessType: 'Feedback' }));
@@ -53,7 +54,7 @@ export const Dashboard = () => {
   useEffect(() => { fetchData(); }, [user]);
 
   const handleAction = async (itemId: string, type: string, accessType: string, approve: boolean) => {
-    if (!user || !isAdminOrEditor) return;
+    if (!user || !isManagement) return;
     try {
       if (type === 'ACCESS') {
         const sub = accessType.toLowerCase();
@@ -89,9 +90,10 @@ export const Dashboard = () => {
   const topHeroCount = allDonations.filter(d => d.userId === topHero?.id && d.status === DonationStatus.COMPLETED).length;
 
   const roleData = [
-    { name: 'Admins', value: allUsers.filter(u => u.role === UserRole.ADMIN).length, color: '#ef4444' },
-    { name: 'Editors', value: allUsers.filter(u => u.role === UserRole.EDITOR).length, color: '#3b82f6' },
-    { name: 'Users', value: allUsers.filter(u => u.role === UserRole.USER).length, color: '#10b981' },
+    { name: 'Admin', value: allUsers.filter(u => u.role === UserRole.ADMIN).length, color: '#ef4444' },
+    { name: 'Editor', value: allUsers.filter(u => u.role === UserRole.EDITOR).length, color: '#3b82f6' },
+    { name: 'User', value: allUsers.filter(u => u.role === UserRole.USER).length, color: '#10b981' },
+    { name: 'SuperAdmin', value: allUsers.filter(u => u.role === UserRole.SUPERADMIN).length, color: '#8b5cf6' },
   ];
 
   const groupData = Object.values(BloodGroup).map(bg => ({
@@ -106,18 +108,84 @@ export const Dashboard = () => {
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Dashboard</h1>
           <p className="text-slate-500 font-medium">Monitoring system analytics and community activity.</p>
         </div>
-        {isAdminOrEditor && <Button onClick={async () => { setInsightLoading(true); const res = await generateDonationInsight(allDonations); setInsight(res); setInsightLoading(false); }} isLoading={insightLoading} variant="secondary"><Sparkles className="w-5 h-5 mr-3 text-yellow-400 fill-current" /> AI Analytics</Button>}
+        {isManagement && <Button onClick={async () => { setInsightLoading(true); const res = await generateDonationInsight(allDonations); setInsight(res); setInsightLoading(false); }} isLoading={insightLoading} variant="secondary"><Sparkles className="w-5 h-5 mr-3 text-yellow-400 fill-current" /> AI Analytics</Button>}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Volume" value={`${globalCompleted.reduce((a,b)=>a+b.units,0)}ml`} icon={Droplet} color="text-red-600" bg="bg-red-50" />
         <StatCard title="Total Donors" value={allUsers.length} icon={Users} color="text-blue-600" bg="bg-blue-50" />
         <StatCard title="System Success" value={globalCompleted.length} icon={CheckCircle} color="text-green-600" bg="bg-green-50" />
-        <StatCard title="Queue Size" value={allDonations.filter(d => d.status === DonationStatus.PENDING).length} icon={Clock} color="text-orange-600" bg="bg-orange-50" />
+        <StatCard title="Queue Size" value={pendingItems.length} icon={LayoutList} color="text-orange-600" bg="bg-orange-50" />
       </div>
+
+      {isSuperAdmin && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <Card className="p-4 lg:p-6 border-0 shadow-lg bg-white rounded-[2.5rem] flex flex-col lg:flex-row items-center gap-3 lg:gap-5 text-center lg:text-left">
+             <div className="w-12 h-12 lg:w-14 lg:h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center"><UserIcon size={28} /></div>
+             <div>
+                <p className="text-[9px] lg:text-[10px] font-black uppercase text-slate-400">Total Users</p>
+                <p className="text-2xl lg:text-3xl font-black text-slate-900">{allUsers.filter(u => u.role === UserRole.USER).length}</p>
+             </div>
+          </Card>
+          <Card className="p-4 lg:p-6 border-0 shadow-lg bg-white rounded-[2.5rem] flex flex-col lg:flex-row items-center gap-3 lg:gap-5 text-center lg:text-left">
+             <div className="w-12 h-12 lg:w-14 lg:h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center"><ShieldIcon size={28} /></div>
+             <div>
+                <p className="text-[9px] lg:text-[10px] font-black uppercase text-slate-400">Total Admin</p>
+                <p className="text-2xl lg:text-3xl font-black text-slate-900">{allUsers.filter(u => u.role === UserRole.ADMIN).length}</p>
+             </div>
+          </Card>
+          <Card className="p-4 lg:p-6 border-0 shadow-lg bg-white rounded-[2.5rem] flex flex-col lg:flex-row items-center gap-3 lg:gap-5 text-center lg:text-left">
+             <div className="w-12 h-12 lg:w-14 lg:h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center"><Edit size={28} /></div>
+             <div>
+                <p className="text-[9px] lg:text-[10px] font-black uppercase text-slate-400">Total Editor</p>
+                <p className="text-2xl lg:text-3xl font-black text-slate-900">{allUsers.filter(u => u.role === UserRole.EDITOR).length}</p>
+             </div>
+          </Card>
+          <Card className="p-4 lg:p-6 border-0 shadow-lg bg-white rounded-[2.5rem] flex flex-col lg:flex-row items-center gap-3 lg:gap-5 text-center lg:text-left">
+             <div className="w-12 h-12 lg:w-14 lg:h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center"><Fingerprint size={28} /></div>
+             <div>
+                <p className="text-[9px] lg:text-[10px] font-black uppercase text-slate-400">Total Super Admin</p>
+                <p className="text-2xl lg:text-3xl font-black text-slate-900">{allUsers.filter(u => u.role === UserRole.SUPERADMIN).length}</p>
+             </div>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+          {isSuperAdmin && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="p-8 border-0 shadow-lg bg-white rounded-[2.5rem]">
+                <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3 uppercase tracking-widest"><Activity size={24} className="text-red-600" /> Role Distribution</h3>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={roleData} innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value" stroke="none">
+                        {roleData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', fontWeight: '900' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              <Card className="p-8 border-0 shadow-lg bg-white rounded-[2.5rem]">
+                <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3 uppercase tracking-widest"><Droplet size={24} className="text-blue-600" /> Blood Spread</h3>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={groupData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="group" fontSize={10} axisLine={false} tickLine={false} />
+                      <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                      <Tooltip cursor={{fill: '#f8fafc', radius: 12}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: '900' }} />
+                      <Bar dataKey="count" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={24} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </div>
+          )}
+
           <Card className="p-10 border-0 shadow-2xl bg-white relative overflow-hidden rounded-[2.5rem]">
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-10">
@@ -177,70 +245,10 @@ export const Dashboard = () => {
               </div>
             </div>
           </Card>
-
-          {isAdminOrEditor && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="p-8 border-0 shadow-lg bg-white rounded-[2.5rem]">
-                  <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3 uppercase tracking-widest"><Activity size={24} className="text-red-600" /> Role Distribution</h3>
-                  <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={roleData} innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value" stroke="none">
-                          {roleData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                        </Pie>
-                        <Tooltip contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', fontWeight: '900' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                <Card className="p-8 border-0 shadow-lg bg-white rounded-[2.5rem]">
-                  <h3 className="text-lg font-black text-slate-900 mb-8 flex items-center gap-3 uppercase tracking-widest"><Droplet size={24} className="text-blue-600" /> Blood Spread</h3>
-                  <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={groupData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="group" fontSize={10} fontWeight="900" axisLine={false} tickLine={false} />
-                        <YAxis fontSize={10} fontWeight="900" axisLine={false} tickLine={false} />
-                        <Tooltip cursor={{fill: '#f8fafc', radius: 12}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: '900' }} />
-                        <Bar dataKey="count" fill="#3b82f6" radius={[10, 10, 0, 0]} barSize={24} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Admin Summary Cards Section */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard 
-                  title="Total Users" 
-                  value={allUsers.filter(u => u.role === UserRole.USER).length} 
-                  icon={UserIcon} 
-                  color="text-green-600" 
-                  bg="bg-green-50" 
-                />
-                <StatCard 
-                  title="Total Admin" 
-                  value={allUsers.filter(u => u.role === UserRole.ADMIN).length} 
-                  icon={ShieldIcon} 
-                  color="text-red-600" 
-                  bg="bg-red-50" 
-                />
-                <StatCard 
-                  title="Total Editor" 
-                  value={allUsers.filter(u => u.role === UserRole.EDITOR).length} 
-                  icon={Edit} 
-                  color="text-blue-600" 
-                  bg="bg-blue-50" 
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="space-y-8">
-          {isAdminOrEditor && (
+          {isManagement && (
             <Card className="p-8 border-0 shadow-xl bg-white overflow-hidden rounded-[2.5rem]">
               <div className="flex items-center justify-between mb-8">
                 <h3 className="font-black text-slate-900 text-xs uppercase tracking-widest flex items-center gap-3"><BellRing className="text-red-600" size={20} /> Recent Updates</h3>
@@ -320,8 +328,8 @@ export const Dashboard = () => {
 };
 
 const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
-  <Card className="p-3 border-0 shadow-sm flex items-center gap-5 hover:shadow-md transition-shadow group rounded-[1.5rem]">
-    <div className={`p-4 rounded-[1.25rem] ${bg} transition-transform group-hover:scale-110 shadow-inner`}><Icon className={`w-6 h-6 ${color} fill-current`} /></div>
-    <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{title}</p><p className="text-2xl font-black text-slate-900 tracking-tighter">{value}</p></div>
+  <Card className="p-3 lg:p-3 border-0 shadow-sm flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-3 lg:gap-5 hover:shadow-md transition-shadow group rounded-[1.5rem] text-center lg:text-left">
+    <div className={`p-3 lg:p-4 rounded-[1.25rem] ${bg} transition-transform group-hover:scale-110 shadow-inner`}><Icon className={`w-5 h-5 lg:w-6 lg:h-6 ${color} fill-current`} /></div>
+    <div><p className="text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-[0.1em] lg:tracking-[0.2em] mb-1 leading-none">{title}</p><p className="text-xl lg:text-2xl font-black text-slate-900 tracking-tighter">{value}</p></div>
   </Card>
 );

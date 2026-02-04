@@ -1,5 +1,6 @@
 
 export enum UserRole {
+  SUPERADMIN = 'SUPERADMIN',
   ADMIN = 'ADMIN',
   EDITOR = 'EDITOR',
   USER = 'USER'
@@ -72,7 +73,23 @@ export interface LandingPageConfig {
   registerTitle?: string;       
   registerSubtitle?: string;    
   registerButtonLabel?: string; 
-  // Added optional style configuration properties for authentication screens
+
+  // Reset Password Screen Customization
+  resetHeadline?: string;
+  resetDescription?: string;
+  resetTitle?: string;
+  resetSubtitle?: string;
+  resetButtonLabel?: string;
+
+  // Email Sent Screen Customization
+  sentHeadline?: string;
+  sentDescription?: string;
+  sentTitle?: string;
+  sentSubtitle?: string;
+  sentButtonLabel?: string;
+  sentGoToLoginLabel?: string;
+  sentTryAgainLabel?: string;
+
   loginStyles?: any;
   signupStyles?: any;
 }
@@ -98,6 +115,8 @@ export interface User {
   hasIDCardAccess?: boolean;
   idCardAccessRequested?: boolean;
   isSuspended?: boolean;
+  // Individual Permission Overrides
+  permissions?: RolePermissions;
 }
 
 export interface DonationRecord {
@@ -156,13 +175,18 @@ export interface RolePermissions {
     users?: boolean;
     manageDonations?: boolean;
     logs?: boolean;
-    directoryPermissions?: boolean;
+    rolePermissions?: boolean;
     supportCenter?: boolean;
     feedback?: boolean;
     approveFeedback?: boolean;
     landingSettings?: boolean;
     myNotice?: boolean;
     summary?: boolean;
+    notifications?: boolean;
+    adminVerify?: boolean;
+    verificationHistory?: boolean;
+    teamIdCards?: boolean;
+    deletedUsers?: boolean;
   };
   rules: {
     canEditProfile: boolean;
@@ -180,6 +204,7 @@ export interface RolePermissions {
 export interface AppPermissions {
   user: RolePermissions;
   editor: RolePermissions;
+  admin: RolePermissions;
 }
 
 export interface AuthState {

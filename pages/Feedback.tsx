@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, updateFeedbackMessage, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks, requestFeedbackAccess } from '../services/api';
 import { Card, Button, Badge, Toast, useToast, ConfirmModal } from '../components/UI';
-import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, ArrowLeft, Activity, Edit3, Lock, ShieldAlert } from 'lucide-react';
+import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, ArrowLeft, Activity, Edit3, Lock, ShieldAlert, Quote } from 'lucide-react';
 import { DonationFeedback, FeedbackStatus, UserRole } from '../types';
 import { Link } from 'react-router-dom';
 import { PublicLayout } from '../components/PublicLayout';
@@ -26,64 +26,62 @@ export const PublicFeedbackPage = () => {
 
   return (
     <PublicLayout>
-      <div className="py-10 px-[5%]">
+      <div className="py-10 px-[5%] bg-[#fcfdfe]">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-12">
-             <div className="flex items-center gap-2 text-slate-400 font-bold">
-               <MessageSquareQuote size={20} /> ডোনারদের বাস্তব অভিজ্ঞতা
+          <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-4">
+             <div className="flex items-center gap-3">
+               <div className="p-3 bg-red-50 rounded-2xl">
+                 <MessageSquareQuote className="text-red-600" size={24} />
+               </div>
+               <div>
+                  <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">ফিডব্যাক ওয়াল</h1>
+                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">রক্তদাতাদের শেয়ার করা বাস্তব অভিজ্ঞতা</p>
+               </div>
              </div>
-             <div className="text-right">
-               <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">ফিডব্যাক ওয়াল</h1>
-               <div className="w-16 h-1 bg-red-600 ml-auto rounded-full"></div>
-             </div>
+             <div className="w-24 h-1.5 bg-red-600 rounded-full hidden md:block"></div>
           </div>
 
           {feedbacks.length > 0 ? (
-            <Card className="overflow-hidden border-0 shadow-xl bg-white rounded-[2rem]">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 font-black uppercase tracking-widest">
-                    <tr>
-                      <th className="px-8 py-5">নাম</th>
-                      <th className="px-8 py-5">মতামত / মেসেজ</th>
-                      <th className="px-8 py-5 text-right">তারিখ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {feedbacks.map(f => (
-                      <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm flex-shrink-0">
-                              {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3 text-slate-300 w-full h-full" />}
-                            </div>
-                            <span className="font-black text-slate-900 text-base">{f.userName}</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6">
-                          <p className="text-slate-600 font-medium italic leading-relaxed">"{f.message}"</p>
-                        </td>
-                        <td className="px-8 py-6 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2 text-slate-400 font-bold">
-                            <Calendar size={14} />
-                            <span>{new Date(f.timestamp).toLocaleDateString()}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in fade-in duration-700">
+              {feedbacks.map(f => (
+                <div key={f.id} className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] border border-slate-50 flex flex-col justify-between hover:shadow-xl transition-all group">
+                  <div>
+                    <div className="mb-4">
+                      <Quote size={40} className="text-red-100 fill-current opacity-50" />
+                    </div>
+                    <p className="text-slate-700 font-bold text-lg leading-relaxed mb-10 min-h-[100px]">
+                      "{f.message}"
+                    </p>
+                  </div>
+                  
+                  <div className="pt-8 border-t border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-full bg-slate-100 overflow-hidden border-2 border-white shadow-md flex-shrink-0">
+                        {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3.5 text-slate-300 w-full h-full" />}
+                      </div>
+                      <div>
+                        <span className="block font-black text-slate-900 text-lg leading-tight">{f.userName}</span>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <Calendar size={14} className="text-slate-400" />
+                          <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                            {new Date(f.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : loading ? (
-            <div className="flex flex-col items-center justify-center py-32 opacity-30">
-              <Activity className="animate-spin text-red-600 mb-4" size={48} />
-              <div className="text-center font-black text-slate-400 uppercase tracking-widest">
+            <div className="flex flex-col items-center justify-center py-40 opacity-30">
+              <Activity className="animate-spin text-red-600 mb-6" size={56} />
+              <div className="text-center font-black text-slate-400 uppercase tracking-[0.3em] text-sm">
                 অভিজ্ঞতাগুলো লোড হচ্ছে...
               </div>
             </div>
           ) : (
-            <div className="py-32 text-center text-slate-400 font-bold italic bg-white rounded-[3rem] border border-dashed border-slate-200">
+            <div className="py-40 text-center text-slate-400 font-bold italic bg-white rounded-[4rem] border-2 border-dashed border-slate-100 shadow-sm">
               এখনো কোনো ফিডব্যাক পাওয়া যায়নি।
             </div>
           )}
@@ -346,7 +344,17 @@ export const FeedbackApprovalPage = () => {
                     </button>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1 sm:gap-2">
+                      {f.status === FeedbackStatus.PENDING && (
+                        <>
+                          <button onClick={() => handleStatusUpdate(f.id, FeedbackStatus.APPROVED)} className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-all" title="Approve">
+                            <Check size={18} />
+                          </button>
+                          <button onClick={() => handleStatusUpdate(f.id, FeedbackStatus.REJECTED)} className="p-2 text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Reject">
+                            <X size={18} />
+                          </button>
+                        </>
+                      )}
                       <button onClick={() => { setEditingFeedback(f); setEditMessage(f.message); }} className="p-2 text-blue-400 hover:bg-blue-50 rounded-xl transition-all" title="Edit message">
                         <Edit3 size={18} />
                       </button>

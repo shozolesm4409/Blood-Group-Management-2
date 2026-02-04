@@ -30,6 +30,9 @@ export const MyNotice = () => {
     const unsubscribe = subscribeToNotices((data) => {
       setNotices(data);
       setLoading(false);
+    }, (err) => {
+      console.error("Notice sync error:", err.message);
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);

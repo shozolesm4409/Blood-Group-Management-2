@@ -1,13 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { login as apiLogin, register as apiRegister, resetPassword, getLandingConfig } from '../services/api';
+import { login as apiLogin, register as apiRegister, getLandingConfig, initiatePasswordResetLink } from '../services/api';
 import { Button } from '../components/UI';
-import { Droplet, AlertCircle, ArrowLeft, User, Lock, Mail, Phone, MapPin, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Droplet, AlertCircle, ArrowLeft, User, Lock, Mail, Phone, MapPin, CheckCircle, Eye, EyeOff, ShieldCheck, Send, ShieldAlert } from 'lucide-react';
 import { BLOOD_GROUPS } from '../constants';
 import { LandingPageConfig } from '../types';
 import { PublicLayout } from '../components/PublicLayout';
+// Added missing import for clsx
+import clsx from 'clsx';
 
 const AuthLayout = ({ children, title, subtitle, headline, description, styles }: any) => {
   return (
@@ -89,21 +91,41 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [config, setConfig] = useState<LandingPageConfig | null>(null);
 
   useEffect(() => {
     getLandingConfig().then(setConfig);
+    
+    // Load remembered credentials
+    const savedEmail = localStorage.getItem('bloodlink_remember_email');
+    const savedPassword = localStorage.getItem('bloodlink_remember_password');
+    if (savedEmail && savedPassword) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const formData = new FormData(e.currentTarget);
-    const pwd = formData.get('password') as string;
+
     try {
-      const user = await apiLogin(email, pwd);
+      const user = await apiLogin(email, password);
+      
+      // Handle Remember Me persistence
+      if (rememberMe) {
+        localStorage.setItem('bloodlink_remember_email', email);
+        localStorage.setItem('bloodlink_remember_password', password);
+      } else {
+        localStorage.removeItem('bloodlink_remember_email');
+        localStorage.removeItem('bloodlink_remember_password');
+      }
+
       login(user);
       navigate('/');
     } catch (err: any) {
@@ -123,14 +145,39 @@ export const Login = () => {
         styles={config?.loginStyles}
       >
         <form onSubmit={handleSubmit}>
-          <CustomInput icon={User} type="email" name="email" placeholder="User Name / Email" value={email} onChange={(e: any) => setEmail(e.target.value)} />
-          <CustomInput icon={Lock} type={showPassword ? 'text' : 'password'} name="password" placeholder="Password" showPasswordToggle onToggleShow={() => setShowPassword(!showPassword)} />
+          <CustomInput 
+            icon={User} 
+            type="email" 
+            name="email" 
+            placeholder="User Name / Email" 
+            value={email} 
+            onChange={(e: any) => setEmail(e.target.value)} 
+          />
+          <CustomInput 
+            icon={Lock} 
+            type={showPassword ? 'text' : 'password'} 
+            name="password" 
+            placeholder="Password" 
+            value={password}
+            onChange={(e: any) => setPassword(e.target.value)}
+            showPasswordToggle 
+            onToggleShow={() => setShowPassword(!showPassword)} 
+          />
           <div className="flex items-center justify-between mb-6 lg:mb-8 px-2">
             <label className="flex items-center gap-2.5 cursor-pointer group">
               <div className="relative flex items-center">
-                <input type="checkbox" className="peer w-4.5 h-4.5 opacity-0 absolute cursor-pointer" />
-                <div className="w-4.5 h-4.5 border-2 border-slate-200 rounded-md peer-checked:bg-red-600 peer-checked:border-red-600 transition-all shadow-sm"></div>
-                <CheckIcon className="absolute left-0.5 text-white scale-0 peer-checked:scale-100 transition-transform" />
+                <input 
+                  type="checkbox" 
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="peer w-4.5 h-4.5 opacity-0 absolute cursor-pointer" 
+                />
+                <div className={clsx(
+                  "w-5 h-5 border-2 rounded-md transition-all shadow-sm flex items-center justify-center",
+                  rememberMe ? "bg-red-600 border-red-600" : "border-slate-200 bg-white"
+                )}>
+                  {rememberMe && <CheckCircle size={14} className="text-white" />}
+                </div>
               </div>
               <span className="text-xs lg:text-sm font-bold text-slate-500 group-hover:text-slate-700">Remember me</span>
             </label>
@@ -248,33 +295,23 @@ export const ResetPassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'email' | 'new-password' | 'success'>('email');
+  const [step, setStep] = useState<'email' | 'sent'>('email');
   const [email, setEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [config, setConfig] = useState<LandingPageConfig | null>(null);
+
+  useEffect(() => {
+    getLandingConfig().then(setConfig);
+  }, []);
 
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      await resetPassword(email);
-      setStep('new-password');
+      await initiatePasswordResetLink(email);
+      setStep('sent');
     } catch (err: any) {
-      setError("ইমেইলটি সঠিক নয় অথবা সিস্টেম ত্রুটি।");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleNewPasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      // Simulate direct update logic
-      setStep('success');
-    } catch (err) {
-      setError("পাসওয়ার্ড রিসেট করা যায়নি।");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -284,13 +321,13 @@ export const ResetPassword = () => {
     return (
       <PublicLayout>
         <AuthLayout 
-          title="Forgot Password?"
-          subtitle="ENTER YOUR REGISTERED EMAIL TO RECOVER YOUR ACCOUNT"
-          headline="RECOVERY"
-          description="আমাদের সিকিউরিটি সিস্টেম ব্যবহার করে আপনার পাসওয়ার্ড রিসেট করুন। আপনার নিবন্ধিত ইমেইল এড্রেসটি নিচে প্রদান করুন।"
+          title={config?.resetTitle || "পাসওয়ার্ড ভুলে গেছেন?"}
+          subtitle={config?.resetSubtitle || "আপনার ইমেইলে পাসওয়ার্ড রিসেট লিংক পাঠান"}
+          headline={config?.resetHeadline || "RECOVERY"}
+          description={config?.resetDescription || "আমাদের সিকিউরিটি সিস্টেম ব্যবহার করে আপনার পাসওয়ার্ড রিসেট করুন। আপনার নিবন্ধিত ইমেইল এড্রেসটি নিচে প্রদান করুন। আমরা একটি সিকিউর লিংক পাঠাব।"}
         >
           <form onSubmit={handleEmailSubmit} className="space-y-6">
-            <CustomInput icon={Mail} type="email" name="email" placeholder="Email Address" value={email} onChange={(e: any) => setEmail(e.target.value)} />
+            <CustomInput icon={Mail} type="email" name="email" placeholder="আপনার জিমেইল এড্রেস" value={email} onChange={(e: any) => setEmail(e.target.value)} />
             
             {error && (
               <div className="p-3.5 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-red-100 flex items-center gap-2">
@@ -299,55 +336,13 @@ export const ResetPassword = () => {
             )}
             
             <button type="submit" disabled={loading} className="w-full bg-[#c1121f] text-white py-4 lg:py-5 rounded-[1.25rem] font-black uppercase tracking-[0.25em] text-base lg:text-lg shadow-xl shadow-red-900/20 hover:bg-[#a0101a] transition-all disabled:opacity-50">
-              {loading ? "Processing..." : "CONTINUE"}
+              {loading ? "প্রসেসিং..." : (config?.resetButtonLabel || "রিসেট লিংক পাঠান")}
             </button>
             
             <div className="pt-6 text-center">
               <Link to="/login" className="text-slate-600 hover:text-red-600 transition-colors text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-                <ArrowLeft size={14} /> Back to Sign In
+                <ArrowLeft size={14} /> ফিরে যান
               </Link>
-            </div>
-          </form>
-        </AuthLayout>
-      </PublicLayout>
-    );
-  }
-
-  if (step === 'new-password') {
-    return (
-      <PublicLayout>
-        <AuthLayout 
-          title="Set New Password"
-          subtitle={`FOR ACCOUNT: ${email}`}
-          headline="SECURITY"
-          description="আপনার নতুন এবং শক্তিশালী পাসওয়ার্ডটি নিচে প্রদান করুন। অন্তত ৮টি অক্ষরের পাসওয়ার্ড ব্যবহার করার পরামর্শ দিচ্ছি।"
-        >
-          <form onSubmit={handleNewPasswordSubmit} className="space-y-6">
-            <CustomInput 
-              icon={Lock} 
-              type={showPassword ? 'text' : 'password'} 
-              name="newPassword" 
-              placeholder="New Password" 
-              value={newPassword} 
-              onChange={(e: any) => setNewPassword(e.target.value)} 
-              showPasswordToggle 
-              onToggleShow={() => setShowPassword(!showPassword)} 
-            />
-            
-            {error && (
-              <div className="p-3.5 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-red-100 flex items-center gap-2">
-                <AlertCircle size={14} /> {error}
-              </div>
-            )}
-            
-            <button type="submit" disabled={loading} className="w-full bg-[#c1121f] text-white py-4 lg:py-5 rounded-[1.25rem] font-black uppercase tracking-[0.25em] text-base lg:text-lg shadow-xl shadow-red-900/20 hover:bg-[#a0101a] transition-all disabled:opacity-50">
-              {loading ? "Saving..." : "SAVE PASSWORD"}
-            </button>
-            
-            <div className="pt-6 text-center">
-              <button onClick={() => setStep('email')} className="text-slate-600 hover:text-red-600 transition-colors text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 mx-auto">
-                <ArrowLeft size={14} /> Back to Email Entry
-              </button>
             </div>
           </form>
         </AuthLayout>
@@ -358,24 +353,34 @@ export const ResetPassword = () => {
   return (
     <PublicLayout>
       <AuthLayout 
-        title="Success!"
-        subtitle="PASSWORD RESET COMPLETE"
-        headline="RECOVERED"
-        description="আপনার পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে। নতুন পাসওয়ার্ড ব্যবহার করে সাইন ইন করুন।"
+        title={config?.sentTitle || "ইমেইল চেক করুন"}
+        subtitle={config?.sentSubtitle || `আমরা একটি লিংক ${email} এ পাঠিয়েছি`}
+        headline={config?.sentHeadline || "EMAIL SENT"}
+        description={config?.sentDescription || "আপনার জিমেইলের ইনবক্স অথবা স্প্যাম ফোল্ডার চেক করুন। সেখানে একটি বাটন পাবেন যা আপনাকে পাসওয়ার্ড পরিবর্তন করতে সাহায্য করবে।"}
       >
-        <div className="text-center space-y-6 py-8">
-          <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-            <CheckCircle size={40} />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-black text-slate-900 tracking-tight">পাসওয়ার্ড আপডেট হয়েছে!</h3>
-            <p className="text-slate-500 font-medium text-sm leading-relaxed px-4">
-              আপনি এখন আপনার নতুন পাসওয়ার্ড দিয়ে সাইন ইন করতে পারবেন।
-            </p>
-          </div>
-          <Link to="/login" className="inline-block w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all">
-            Back to Sign In
-          </Link>
+        <div className="text-center py-10 space-y-8 animate-in zoom-in-95 duration-500">
+           <div className="w-24 h-24 bg-red-50 text-red-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner">
+              <Send size={48} className="animate-pulse" />
+           </div>
+           <div className="space-y-4">
+              <p className="text-slate-500 font-medium leading-relaxed">
+                 আমরা সরাসরি Google-এর মাধ্যমে আপনাকে একটি ইমেইল পাঠিয়েছি। মেইলের লিংকে ক্লিক করে নতুন পাসওয়ার্ড সেট করুন।
+              </p>
+              <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl flex items-start gap-3">
+                 <ShieldAlert size={18} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                 <p className="text-[10px] text-orange-700 font-bold leading-tight text-left">
+                    পাসওয়ার্ড পরিবর্তন করার পর আপনি পুনরায় অ্যাপে ফিরে এসে নতুন পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।
+                 </p>
+              </div>
+           </div>
+           <div className="flex flex-col gap-3">
+             <Link to="/login" className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all">
+                {config?.sentGoToLoginLabel || "লগইন পেজে ফিরে যান"}
+             </Link>
+             <button onClick={() => setStep('email')} className="text-[10px] font-black uppercase text-slate-400 hover:text-red-600 transition-colors">
+                {config?.sentTryAgainLabel || "ভুল ইমেইল দিয়েছেন? আবার চেষ্টা করুন"}
+             </button>
+           </div>
         </div>
       </AuthLayout>
     </PublicLayout>

@@ -3,7 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { UserRole, AppPermissions, RolePermissions, DonationStatus } from '../types';
-import { getAppPermissions, getUsers, getDonations, subscribeToAllIncomingMessages, getAllFeedbacks } from '../services/api';
+import { 
+  getAppPermissions, 
+  getUsers, 
+  getDonations, 
+  subscribeToAllIncomingMessages, 
+  getAllFeedbacks,
+  ADMIN_EMAIL
+} from '../services/api';
 import { 
   LayoutDashboard, 
   UserCircle, 
@@ -28,9 +35,15 @@ import {
   Settings,
   IdCard,
   ShieldCheck,
-  ClipboardList
+  ClipboardList,
+  Lock
 } from 'lucide-react';
 import clsx from 'clsx';
+
+interface BadgeConfig {
+  count: number;
+  color: 'red' | 'blue' | 'green';
+}
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const { user, logout } = useAuth();
@@ -42,14 +55,15 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [counts, setCounts] = useState({
     donations: 0,
     access: 0,
-    messages: 0,
+    messenger: 0,
+    support: 0,
     feedbacks: 0
   });
 
   useEffect(() => {
     getAppPermissions().then(setPerms);
     
-    if (user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR) {
+    if (user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR || user?.role === UserRole.SUPERADMIN) {
       const fetchCounts = async () => {
         try {
           const [users, donations, feedbacks] = await Promise.all([getUsers(), getDonations(), getAllFeedbacks()]);
@@ -68,9 +82,15 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
     if (user) {
       const unsubscribeMessages = subscribeToAllIncomingMessages(user.id, (msgs) => {
-        setCounts(prev => ({ ...prev, messages: msgs.length }));
+        const relevantMsgs = msgs.filter(m => m.receiverId === user.id || (user.role !== UserRole.USER && m.roomId.startsWith('SUPPORT_')));
+        
+        // Split unread counts by category
+        const messengerCount = relevantMsgs.filter(m => !m.roomId.startsWith('SUPPORT_')).length;
+        const supportCount = relevantMsgs.filter(m => m.roomId.startsWith('SUPPORT_')).length;
+        
+        setCounts(prev => ({ ...prev, messenger: messengerCount, support: supportCount }));
       }, (err) => {
-        console.debug("Layout message subscription restricted:", err.message);
+        console.debug("Layout message subscription restricted");
       });
       return () => unsubscribeMessages();
     }
@@ -81,8 +101,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     navigate('/');
   };
 
-  const NavItem = ({ to, icon: Icon, label, badge }: { to: string, icon: any, label: string, badge?: number }) => {
-    const isActive = location.pathname.startsWith(to); // Using startsWith to keep active when search param is in URL
+  const NavItem = ({ to, icon: Icon, label, badges }: { to: string, icon: any, label: string, badges?: BadgeConfig[] }) => {
+    const isActive = location.pathname.startsWith(to);
     return (
       <Link
         to={to}
@@ -98,36 +118,67 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           <Icon size={18} className={clsx(isActive ? "text-red-600" : "text-slate-400 group-hover:text-slate-600")} />
           <span className="text-[13px] tracking-tight">{label}</span>
         </div>
-        {badge !== undefined && badge > 0 ? (
-          <span className="bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-lg shadow-sm">
-            {badge}
-          </span>
-        ) : (
-          isActive && <ChevronRight size={14} className="text-red-300" />
-        )}
+        
+        <div className="flex items-center gap-1">
+          {badges?.filter(b => b.count > 0).map((b, i) => (
+            <span 
+              key={i}
+              className={clsx(
+                "text-white text-[9px] font-black px-1.5 py-0.5 rounded-lg shadow-sm animate-in zoom-in-50",
+                b.color === 'red' ? "bg-red-600" : b.color === 'blue' ? "bg-blue-600" : "bg-green-600"
+              )}
+            >
+              {b.count}
+            </span>
+          ))}
+          {(!badges || badges.every(b => b.count === 0)) && isActive && (
+            <ChevronRight size={14} className="text-red-300" />
+          )}
+        </div>
       </Link>
     );
   };
 
-  const SidebarSection = ({ title, children }: { title: string, children?: React.ReactNode }) => (
-    <div className="space-y-1 mb-6">
-      <h3 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{title}</h3>
-      <div className="space-y-0.5">{children}</div>
-    </div>
-  );
+  const SidebarSection = ({ title, children }: { title: string, children?: React.ReactNode }) => {
+    const hasVisibleChildren = React.Children.toArray(children).some(child => !!child);
+    if (!hasVisibleChildren) return null;
 
+    return (
+      <div className="space-y-1 mb-6">
+        <h3 className="px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{title}</h3>
+        <div className="space-y-0.5">{children}</div>
+      </div>
+    );
+  };
+
+  const isSuperAdmin = user?.role === UserRole.SUPERADMIN || user?.email.trim().toLowerCase() === ADMIN_EMAIL;
   const isAdmin = user?.role === UserRole.ADMIN;
   const isEditor = user?.role === UserRole.EDITOR;
 
-  const currentRolePerms: RolePermissions = perms ? (
-    isAdmin ? {
-      sidebar: { summary: true, dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, logs: true, directoryPermissions: true, supportCenter: true, feedback: true, approveFeedback: true, landingSettings: true, myNotice: true },
-      rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true, canPerformAction: true, canLogDonation: true, canPostNotice: true }
-    } : (isEditor ? perms.editor : perms.user)
-  ) : {
-    sidebar: { dashboard: true, profile: true, history: true, donors: true, feedback: true, myNotice: true },
-    rules: { canEditProfile: true, canViewDonorDirectory: true, canRequestDonation: true }
+  // Resolve base permissions based on role
+  let basePerms: any = {
+    dashboard: true, profile: true, history: true, donors: true, feedback: true, myNotice: true
   };
+
+  if (perms) {
+    if (isSuperAdmin) {
+      basePerms = { 
+        summary: true, dashboard: true, profile: true, history: true, donors: true, users: true, manageDonations: true, 
+        logs: true, rolePermissions: true, supportCenter: true, feedback: true, approveFeedback: true, 
+        landingSettings: true, myNotice: true, notifications: true, adminVerify: true, 
+        verificationHistory: true, teamIdCards: true, deletedUsers: true 
+      };
+    } else if (isAdmin) {
+      basePerms = perms.admin?.sidebar || basePerms;
+    } else if (isEditor) {
+      basePerms = perms.editor?.sidebar || basePerms;
+    } else {
+      basePerms = perms.user?.sidebar || basePerms;
+    }
+  }
+
+  // Apply individual User-level overrides if they exist
+  const s = user?.permissions?.sidebar ? { ...basePerms, ...user.permissions.sidebar } : basePerms;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex">
@@ -151,37 +202,52 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-10">
           <SidebarSection title="User Hub">
-            {currentRolePerms.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
-            {currentRolePerms.sidebar.profile && <NavItem to="/profile" icon={UserCircle} label="Account Profile" />}
-            {currentRolePerms.sidebar.history && <NavItem to="/my-donations" icon={History} label="My Donate" />}
+            {s.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
+            {s.profile && <NavItem to="/profile" icon={UserCircle} label="Account Profile" />}
+            {s.history && <NavItem to="/my-donations" icon={History} label="My Donate" />}
           </SidebarSection>
 
           <SidebarSection title="Community">
-             <NavItem to="/donors" icon={Search} label="Donor Directory" />
-             {currentRolePerms.sidebar.myNotice && <NavItem to="/notices" icon={Megaphone} label="Board Notices" />}
-             {currentRolePerms.sidebar.supportCenter && <NavItem to="/support" icon={LifeBuoy} label="Support Center" badge={counts.messages} />}
-             <NavItem to="/feedback" icon={MessageSquareQuote} label="Post Feedback" />
+             {s.donors && <NavItem to="/donors" icon={Search} label="Donor Directory" />}
+             {s.myNotice && <NavItem to="/notices" icon={Megaphone} label="Board Notices" />}
+             {s.supportCenter && (
+               <NavItem 
+                 to="/support" 
+                 icon={LifeBuoy} 
+                 label="Support Center" 
+                 badges={[
+                   { count: counts.messenger, color: 'blue' },
+                   { count: counts.support, color: 'green' }
+                 ]} 
+               />
+             )}
+             {s.feedback && <NavItem to="/feedback" icon={MessageSquareQuote} label="Post Feedback" />}
           </SidebarSection>
 
-          {(isAdmin || isEditor) && (
+          {(isAdmin || isEditor || isSuperAdmin) && (
             <>
               <SidebarSection title="Content Admin">
-                {currentRolePerms.sidebar.landingSettings && <NavItem to="/landing-settings" icon={Monitor} label="Page Customizer" />}
-                {currentRolePerms.sidebar.manageDonations && <NavItem to="/manage-donations" icon={Database} label="Donation Records" badge={counts.donations} />}
-                {currentRolePerms.sidebar.approveFeedback && <NavItem to="/approve-feedback" icon={CheckCircle2} label="Moderate Feedback" badge={counts.feedbacks} />}
+                {isSuperAdmin && s.landingSettings && <NavItem to="/landing-settings" icon={Monitor} label="Page Customizer" />}
+                {s.manageDonations && <NavItem to="/manage-donations" icon={Database} label="Donation Records" badges={[{ count: counts.donations, color: 'red' }]} />}
+                {s.approveFeedback && <NavItem to="/approve-feedback" icon={CheckCircle2} label="Moderate Feedback" badges={[{ count: counts.feedbacks, color: 'red' }]} />}
               </SidebarSection>
 
               <SidebarSection title="People Control">
-                {currentRolePerms.sidebar.users && <NavItem to="/users" icon={UsersRound} label="Manage Users" />}
-                {isAdmin && <NavItem to="/notifications" icon={Bell} label="Access Requests" badge={counts.access} />}
-                {isAdmin && <NavItem to="/admin/verify" icon={ShieldCheck} label="Verify Identity" />}
-                {isAdmin && <NavItem to="/verification-history" icon={ClipboardList} label="Verification History" />}
-                {isAdmin && <NavItem to="/team-id-cards" icon={IdCard} label="Team ID Cards" />}
+                {s.users && <NavItem to="/users" icon={UsersRound} label="Manage Users" />}
+                {s.notifications && <NavItem to="/notifications" icon={Bell} label="Access Requests" badges={[{ count: counts.access, color: 'red' }]} />}
+                {s.adminVerify && <NavItem to="/admin/verify" icon={ShieldCheck} label="Verify Identity" />}
+                {s.verificationHistory && <NavItem to="/verification-history" icon={ClipboardList} label="Verification History" />}
+                {isSuperAdmin && s.teamIdCards && <NavItem to="/team-id-cards" icon={IdCard} label="Team ID Cards" />}
               </SidebarSection>
 
               <SidebarSection title="System Intel">
-                {isAdmin && <NavItem to="/deleted-users" icon={Trash2} label="System Archives" />}
-                {currentRolePerms.sidebar.logs && <NavItem to="/logs" icon={FileText} label="Activity Logs" />}
+                {isSuperAdmin && (
+                  <>
+                    {s.rolePermissions && <NavItem to="/role-permissions" icon={Lock} label="Role Permissions" />}
+                    {s.deletedUsers && <NavItem to="/deleted-users" icon={Trash2} label="System Archives" />}
+                    {s.logs && <NavItem to="/logs" icon={FileText} label="Activity Logs" />}
+                  </>
+                )}
               </SidebarSection>
             </>
           )}

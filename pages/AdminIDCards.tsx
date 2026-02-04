@@ -76,15 +76,18 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
             {user.name}
           </h4>
           
-          {/* Designation Badge - Reduced Padding as requested */}
+          {/* Designation Badge */}
           <div className="mt-1.5 mb-3.5">
             <div className={clsx(
               "px-6 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.1em] shadow-md border ring-4 ring-white",
+              user.role === UserRole.SUPERADMIN ? "bg-purple-600 text-white border-purple-700" :
               user.role === UserRole.ADMIN ? "bg-[#e11d48] text-white border-red-700" :
               user.role === UserRole.EDITOR ? "bg-[#001f3f] text-white border-slate-800" :
               "bg-green-600 text-white border-green-700"
             )}>
-              {user.role === UserRole.ADMIN ? 'System Administrator' : (user.role === UserRole.EDITOR ? 'System Editor' : 'Verified Donor')}
+              {user.role === UserRole.SUPERADMIN ? 'Administrator' : 
+               user.role === UserRole.ADMIN ? 'System Admin' : 
+               user.role === UserRole.EDITOR ? 'System Editor' : 'Verified Donor'}
             </div>
           </div>
 
@@ -150,7 +153,7 @@ export const AdminIDCards = () => {
   }, []);
 
   const filteredRegistry = filter === 'TEAM' 
-    ? registry.filter(u => u.role === UserRole.ADMIN || u.role === UserRole.EDITOR)
+    ? registry.filter(u => u.role === UserRole.ADMIN || u.role === UserRole.EDITOR || u.role === UserRole.SUPERADMIN)
     : registry;
 
   const downloadAsJpg = async (userId: string, name: string) => {

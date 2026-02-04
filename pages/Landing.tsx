@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { collection, onSnapshot } from '@firebase/firestore';
 import { db, subscribeToApprovedFeedbacks, getLandingConfig, getCachedFeedbacks } from '../services/api';
 import { DonationStatus, DonationFeedback, LandingPageConfig } from '../types';
-import { Droplet, Users, HeartPulse, Activity, User as UserIcon, Calendar, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Droplet, Users, HeartPulse, Activity, User as UserIcon, Calendar, ArrowRight, ShieldCheck, Quote } from 'lucide-react';
 import { PublicLayout } from '../components/PublicLayout';
 
 export const Landing = () => {
@@ -133,26 +133,28 @@ export const Landing = () => {
             <div className="animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {feedbacks.slice(0, 6).map(f => (
-                  <div key={f.id} className="bg-white p-8 lg:p-10 rounded-[2.5rem] shadow-[0_15px_50px_-10px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col justify-between hover:shadow-xl transition-all group">
+                  <div key={f.id} className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.05)] border border-slate-50 flex flex-col justify-between hover:shadow-xl transition-all group">
                     <div>
-                      <div className="mb-6">
-                         <div className="text-[60px] leading-none font-serif text-red-100 select-none">“</div>
+                      <div className="mb-4">
+                        <Quote size={40} className="text-red-100 fill-current opacity-50" />
                       </div>
-                      <p className="text-slate-600 font-medium italic leading-relaxed text-lg mb-8">
+                      <p className="text-slate-700 font-bold text-lg leading-relaxed mb-10 min-h-[100px]">
                         "{f.message}"
                       </p>
                     </div>
                     
                     <div className="pt-8 border-t border-slate-100">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm flex-shrink-0">
-                          {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3 text-slate-300 w-full h-full" />}
+                        <div className="w-14 h-14 rounded-full bg-slate-100 overflow-hidden border-2 border-white shadow-md flex-shrink-0">
+                          {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3.5 text-slate-300 w-full h-full" />}
                         </div>
                         <div>
-                          <span className="block font-black text-slate-900 text-base leading-tight">{f.userName}</span>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Calendar size={12} className="text-slate-400" />
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{new Date(f.timestamp).toLocaleDateString()}</span>
+                          <span className="block font-black text-slate-900 text-lg leading-tight">{f.userName}</span>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <Calendar size={14} className="text-slate-400" />
+                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                              {new Date(f.timestamp).toLocaleDateString()}
+                            </span>
                           </div>
                         </div>
                       </div>
