@@ -15,17 +15,17 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
   return (
     <div 
       ref={ref}
-      className="id-card-container relative w-[320px] h-[520px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 flex flex-col font-sans select-none"
+      className="id-card-container relative w-[320px] h-[540px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 flex flex-col font-sans select-none"
     >
-      {/* Top Brand Area (Deep Red Theme) - Increased height to 160px */}
-      <div className="h-[160px] bg-[#991b1b] relative overflow-hidden">
+      {/* Top Brand Area (Deep Red Theme) */}
+      <div className="h-[160px] bg-[#991b1b] relative overflow-hidden flex-shrink-0">
         {/* Decorative Professional Curves */}
         <div className="absolute top-0 right-0 w-full h-full">
            <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[120%] bg-red-900 rounded-[5rem] rotate-[15deg] opacity-40"></div>
            <div className="absolute top-[10%] right-[-30%] w-[100%] h-[100%] bg-red-400/20 rounded-[5rem] rotate-[-10deg]"></div>
         </div>
         
-        {/* Logo & Org Name - Lifted up with pt-5 to clear photo overlap */}
+        {/* Logo & Org Name */}
         <div className="relative z-10 pt-5 px-5 flex flex-col items-center">
            <div className="w-9 h-9 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-1 ring-4 ring-white/10">
               <Droplet size={20} className="text-red-600 fill-current" />
@@ -35,10 +35,10 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
         </div>
       </div>
 
-      {/* Profile Photo Area - Larger photo (w-28) and adjusted margin (-mt-14) */}
-      <div className="relative z-20 -mt-14 flex justify-center">
-         <div className="w-28 h-28 bg-white rounded-3xl p-1 shadow-2xl ring-1 ring-slate-100/50">
-            <div className="w-full h-full bg-slate-50 rounded-2xl overflow-hidden flex items-center justify-center border-2 border-white">
+      {/* Profile Photo Area - Increased size to w-32 (128px) */}
+      <div className="relative z-20 -mt-16 flex justify-center">
+         <div className="w-32 h-32 bg-white rounded-[2rem] p-1.5 shadow-2xl ring-1 ring-slate-100/50">
+            <div className="w-full h-full bg-slate-50 rounded-[1.5rem] overflow-hidden flex items-center justify-center border-2 border-white">
               {user.avatar ? (
                 <img 
                   src={user.avatar} 
@@ -51,32 +51,32 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
                   }}
                 />
               ) : (
-                <UserIcon size={40} className="text-slate-300" />
+                <UserIcon size={48} className="text-slate-300" />
               )}
             </div>
          </div>
       </div>
 
       {/* User Identity Details */}
-      <div className="flex-1 px-8 pt-5 pb-4 flex flex-col items-center text-center">
+      <div className="flex-1 px-8 pt-6 pb-4 flex flex-col items-center text-center">
          <h4 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase mb-1">{user.name}</h4>
-         <div className="mb-6">
+         <div className="mb-2">
            <Badge color={user.role === UserRole.USER ? 'red' : 'blue'} className="text-[8px] px-2.5 py-0.5 shadow-sm border border-white">
              {user.role === UserRole.USER ? 'VERIFIED DONOR' : `SYSTEM ${user.role}`}
            </Badge>
          </div>
 
-         {/* Pushed down blocks significantly using mt-8 */}
-         <div className="w-full space-y-2 mt-8">
-            <div className="flex items-center justify-between bg-red-50/60 px-4 py-2 rounded-xl border border-red-100/50 shadow-sm">
+         {/* Mark section lowered significantly as requested (mt-12) */}
+         <div className="w-full space-y-2 mt-12">
+            <div className="flex items-center justify-between bg-red-50/60 px-4 py-2.5 rounded-xl border border-red-100/50 shadow-sm">
                <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">BL ID</span>
                <span className="text-[11px] font-black text-red-700 tracking-wider">{user.idNumber || 'BL-XXXXXX'}</span>
             </div>
-            <div className="flex items-center justify-between bg-slate-50/80 px-4 py-2 rounded-xl border border-slate-100/50">
+            <div className="flex items-center justify-between bg-slate-50/80 px-4 py-2.5 rounded-xl border border-slate-100/50">
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone</span>
                <span className="text-[11px] font-bold text-slate-700">{user.phone || 'N/A'}</span>
             </div>
-            <div className="flex items-center justify-between bg-slate-50/80 px-4 py-2 rounded-xl border border-slate-100/50">
+            <div className="flex items-center justify-between bg-slate-50/80 px-4 py-2.5 rounded-xl border border-slate-100/50">
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Group</span>
                <span className="text-[11px] font-black text-red-600">{user.bloodGroup}</span>
             </div>
@@ -84,7 +84,7 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
       </div>
 
       {/* Footer Section with Verification QR */}
-      <div className="h-[80px] bg-slate-50 border-t border-slate-100 px-6 flex items-center justify-between relative overflow-hidden">
+      <div className="h-[80px] bg-slate-50 border-t border-slate-100 px-6 flex items-center justify-between relative overflow-hidden flex-shrink-0">
          <div className="absolute bottom-0 right-0 w-24 h-24 bg-red-600/5 rounded-full -mb-12 -mr-12"></div>
          
          <div className="flex-1 text-left">
@@ -97,7 +97,7 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
       </div>
       
       {/* Side Security Mark */}
-      <div className="absolute left-0 top-[170px] w-1.5 h-20 bg-red-600 rounded-r-full shadow-md"></div>
+      <div className="absolute left-0 top-[180px] w-1.5 h-20 bg-red-600 rounded-r-full shadow-md"></div>
     </div>
   );
 });
@@ -183,7 +183,8 @@ export const AdminIDCards = () => {
         {filteredRegistry.map(member => (
           <div key={member.id} className="relative group flex flex-col items-center transition-all duration-300">
              <div className="mb-4">
-                <IDCardFrame user={member} ref={el => cardRefs.current[member.id] = el} />
+                {/* Fixed ref assignment to avoid returning a value in the ref callback and resolve TS error */}
+                <IDCardFrame user={member} ref={el => { cardRefs.current[member.id] = el; }} />
              </div>
              
              <div className="flex items-center gap-4 no-print">
