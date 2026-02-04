@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { submitFeedback, getAllFeedbacks, updateFeedbackStatus, updateFeedbackMessage, toggleFeedbackVisibility, deleteFeedback, subscribeToApprovedFeedbacks, getCachedFeedbacks, requestFeedbackAccess } from '../services/api';
-import { Card, Button, Badge, Input, Toast, useToast, ConfirmModal } from '../components/UI';
-import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, Quote, ArrowLeft, Activity, Edit3, Lock, ShieldAlert } from 'lucide-react';
+import { Card, Button, Badge, Toast, useToast, ConfirmModal } from '../components/UI';
+import { MessageSquareQuote, Check, X, User as UserIcon, Eye, EyeOff, Trash2, Calendar, ArrowLeft, Activity, Edit3, Lock, ShieldAlert } from 'lucide-react';
 import { DonationFeedback, FeedbackStatus, UserRole } from '../types';
 import { Link } from 'react-router-dom';
+import { PublicLayout } from '../components/PublicLayout';
 import clsx from 'clsx';
 
 export const PublicFeedbackPage = () => {
@@ -24,69 +25,71 @@ export const PublicFeedbackPage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-[5%]">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-12">
-           <Link to="/" className="flex items-center gap-2 text-slate-500 font-bold hover:text-red-600 transition-colors">
-             <ArrowLeft size={20} /> হোমপেজে ফিরুন
-           </Link>
-           <div className="text-right">
-             <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">ডোনারদের অভিজ্ঞতা</h1>
-             <div className="w-16 h-1 bg-red-600 ml-auto rounded-full"></div>
-           </div>
-        </div>
+    <PublicLayout>
+      <div className="py-10 px-[5%]">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-12">
+             <div className="flex items-center gap-2 text-slate-400 font-bold">
+               <MessageSquareQuote size={20} /> ডোনারদের বাস্তব অভিজ্ঞতা
+             </div>
+             <div className="text-right">
+               <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">ফিডব্যাক ওয়াল</h1>
+               <div className="w-16 h-1 bg-red-600 ml-auto rounded-full"></div>
+             </div>
+          </div>
 
-        {feedbacks.length > 0 ? (
-          <Card className="overflow-hidden border-0 shadow-xl bg-white rounded-[2rem]">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 font-black uppercase tracking-widest">
-                  <tr>
-                    <th className="px-8 py-5">নাম</th>
-                    <th className="px-8 py-5">মতামত / মেসেজ</th>
-                    <th className="px-8 py-5 text-right">তারিখ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {feedbacks.map(f => (
-                    <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm flex-shrink-0">
-                            {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3 text-slate-300 w-full h-full" />}
-                          </div>
-                          <span className="font-black text-slate-900 text-base">{f.userName}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-slate-600 font-medium italic leading-relaxed">"{f.message}"</p>
-                      </td>
-                      <td className="px-8 py-6 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2 text-slate-400 font-bold">
-                          <Calendar size={14} />
-                          <span>{new Date(f.timestamp).toLocaleDateString()}</span>
-                        </div>
-                      </td>
+          {feedbacks.length > 0 ? (
+            <Card className="overflow-hidden border-0 shadow-xl bg-white rounded-[2rem]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 font-black uppercase tracking-widest">
+                    <tr>
+                      <th className="px-8 py-5">নাম</th>
+                      <th className="px-8 py-5">মতামত / মেসেজ</th>
+                      <th className="px-8 py-5 text-right">তারিখ</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {feedbacks.map(f => (
+                      <tr key={f.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shadow-sm flex-shrink-0">
+                              {f.userAvatar ? <img src={f.userAvatar} className="w-full h-full object-cover" alt={f.userName} /> : <UserIcon className="p-3 text-slate-300 w-full h-full" />}
+                            </div>
+                            <span className="font-black text-slate-900 text-base">{f.userName}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="text-slate-600 font-medium italic leading-relaxed">"{f.message}"</p>
+                        </td>
+                        <td className="px-8 py-6 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2 text-slate-400 font-bold">
+                            <Calendar size={14} />
+                            <span>{new Date(f.timestamp).toLocaleDateString()}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : loading ? (
+            <div className="flex flex-col items-center justify-center py-32 opacity-30">
+              <Activity className="animate-spin text-red-600 mb-4" size={48} />
+              <div className="text-center font-black text-slate-400 uppercase tracking-widest">
+                অভিজ্ঞতাগুলো লোড হচ্ছে...
+              </div>
             </div>
-          </Card>
-        ) : loading ? (
-          <div className="flex flex-col items-center justify-center py-32 opacity-30">
-            <Activity className="animate-spin text-red-600 mb-4" size={48} />
-            <div className="text-center font-black text-slate-400 uppercase tracking-widest">
-              অভিজ্ঞতাগুলো লোড হচ্ছে...
+          ) : (
+            <div className="py-32 text-center text-slate-400 font-bold italic bg-white rounded-[3rem] border border-dashed border-slate-200">
+              এখনো কোনো ফিডব্যাক পাওয়া যায়নি।
             </div>
-          </div>
-        ) : (
-          <div className="py-32 text-center text-slate-400 font-bold italic bg-white rounded-[3rem] border border-dashed border-slate-200">
-            এখনো কোনো ফিডব্যাক পাওয়া যায়নি।
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </PublicLayout>
   );
 };
 
@@ -151,7 +154,6 @@ export const DonationFeedbackPage = () => {
               <span className="font-black text-sm uppercase tracking-widest">Request Pending Approval</span>
             </div>
           ) : (
-            // Fixed: Typo in variable name 'requesting' to 'isRequesting'
             <Button onClick={handleRequestAccess} isLoading={isRequesting} className="w-full py-5 rounded-2xl text-lg">Request Access Now</Button>
           )}
         </Card>
@@ -366,8 +368,8 @@ export const FeedbackApprovalPage = () => {
             <h3 className="text-xl font-black text-slate-900 tracking-tight mb-6">Edit Feedback</h3>
             <textarea value={editMessage} onChange={(e) => setEditMessage(e.target.value)} className="w-full bg-slate-50 border-0 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-red-500 transition-all outline-none min-h-[150px]" />
             <div className="flex gap-4 mt-6">
-              <Button onClick={handleSaveEdit} isLoading={savingEdit} className="flex-1 py-4">Save Changes</Button>
-              <Button variant="outline" onClick={() => setEditingFeedback(null)} className="flex-1 py-4">Cancel</Button>
+              <Button onClick={handleSaveEdit} isLoading={savingEdit} className="flex-1 py-4 rounded-2xl">Save Changes</Button>
+              <Button variant="outline" onClick={() => setEditingFeedback(null)} className="flex-1 py-4 rounded-2xl">Cancel</Button>
             </div>
           </Card>
         </div>

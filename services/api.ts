@@ -39,7 +39,8 @@ const COLLECTIONS = {
   MESSAGES: 'messages',
   REVOKED_PERMISSIONS: 'revoked_permissions',
   FEEDBACKS: 'feedbacks',
-  NOTICES: 'notices'
+  NOTICES: 'notices',
+  VERIFICATION_LOGS: 'verification_logs'
 };
 
 const CACHE_KEYS = {
@@ -63,6 +64,26 @@ const createLog = async (action: string, userId: string, userName: string, detai
   } catch (e) {
     console.debug("Audit logging failed.");
   }
+};
+
+// --- Verification Logs ---
+export const logVerificationCheck = async (memberId: string, memberName: string, bloodGroup: string) => {
+  try {
+    await addDoc(collection(db, COLLECTIONS.VERIFICATION_LOGS), {
+      memberId,
+      memberName,
+      bloodGroup,
+      timestamp: new Date().toISOString()
+    });
+  } catch (e) {
+    console.debug("Verification logging failed.");
+  }
+};
+
+export const getVerificationLogs = async () => {
+  const q = query(collection(db, COLLECTIONS.VERIFICATION_LOGS), orderBy('timestamp', 'desc'), limit(50));
+  const snap = await getDocs(q);
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
 // --- Notices ---

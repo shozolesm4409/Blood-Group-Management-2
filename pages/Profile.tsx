@@ -194,7 +194,7 @@ export const Profile = () => {
           <Card className="p-8 border-0 shadow-xl bg-white rounded-[2.5rem]">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-8 flex items-center gap-3"><Upload size={16} /> Identity Details</h3>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2"><Input label="System ID Number (Protected)" value={user.idNumber} disabled className="opacity-50 font-mono" /></div>
+              <div className="md:col-span-2"><Input label="BL ID Number (Protected)" value={user.idNumber} disabled className="opacity-50 font-mono" /></div>
               <div className="md:col-span-2"><Input label="Email Address (Locked)" value={user.email} disabled className="opacity-50" /></div>
               <div className="md:col-span-2"><Input label="Full Identity Name" name="name" defaultValue={user.name} disabled={isRestricted} /></div>
               <Input label="Primary Phone" name="phone" defaultValue={user.phone} disabled={isRestricted} />

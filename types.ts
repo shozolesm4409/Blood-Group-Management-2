@@ -72,6 +72,9 @@ export interface LandingPageConfig {
   registerTitle?: string;       
   registerSubtitle?: string;    
   registerButtonLabel?: string; 
+  // Added optional style configuration properties for authentication screens
+  loginStyles?: any;
+  signupStyles?: any;
 }
 
 export interface User {

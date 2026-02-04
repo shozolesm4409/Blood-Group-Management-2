@@ -3,7 +3,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { Layout } from './components/Layout';
-import { Login, Register } from './pages/Auth';
+import { Login, Register, ResetPassword } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { Profile } from './pages/Profile';
 import { Landing } from './pages/Landing';
@@ -21,6 +21,8 @@ import { DonationFeedbackPage, FeedbackApprovalPage, PublicFeedbackPage } from '
 import { MyNotice } from './pages/MyNotice';
 import { AdminIDCards } from './pages/AdminIDCards';
 import { VerifyMember } from './pages/VerifyMember';
+import { AdminVerificationHistory } from './pages/AdminVerificationHistory';
+import { PublicLayout } from './components/PublicLayout';
 import { UserRole } from './types';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children?: React.ReactNode, allowedRoles?: UserRole[] }) => {
@@ -45,8 +47,11 @@ const App = () => {
           <Route path="/" element={<RootRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/reset" element={<ResetPassword />} />
           <Route path="/public-feedbacks" element={<PublicFeedbackPage />} />
-          <Route path="/verify/:idNumber" element={<VerifyMember />} />
+          
+          {/* Public Verification Route with PublicLayout */}
+          <Route path="/verify/:idNumber?" element={<PublicLayout><VerifyMember /></PublicLayout>} />
           
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
@@ -62,6 +67,11 @@ const App = () => {
           <Route path="/manage-donations" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.EDITOR]}><AdminDonations /></ProtectedRoute>} />
           <Route path="/approve-feedback" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.EDITOR]}><FeedbackApprovalPage /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminPermissions /></ProtectedRoute>} />
+          
+          {/* Admin Integrated Verification Routes */}
+          <Route path="/admin/verify/:idNumber?" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><VerifyMember /></ProtectedRoute>} />
+          <Route path="/verification-history" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminVerificationHistory /></ProtectedRoute>} />
+          
           <Route path="/deleted-users" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminArchives /></ProtectedRoute>} />
           <Route path="/logs" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.EDITOR]}><AdminSystemLogs /></ProtectedRoute>} />
           <Route path="/team-id-cards" element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]}><AdminIDCards /></ProtectedRoute>} />
@@ -69,7 +79,6 @@ const App = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </HashRouter>
-    {/* Corrected closing tag for AuthProvider */}
     </AuthProvider>
   );
 };

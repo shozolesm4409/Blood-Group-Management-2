@@ -26,7 +26,9 @@ import {
   ChevronRight,
   PieChart,
   Settings,
-  IdCard
+  IdCard,
+  ShieldCheck,
+  ClipboardList
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -80,7 +82,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   };
 
   const NavItem = ({ to, icon: Icon, label, badge }: { to: string, icon: any, label: string, badge?: number }) => {
-    const isActive = location.pathname === to;
+    const isActive = location.pathname.startsWith(to); // Using startsWith to keep active when search param is in URL
     return (
       <Link
         to={to}
@@ -133,7 +135,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      {/* Added h-screen and overflow-hidden to ensure sidebar handles scrolling within itself */}
       <aside className={clsx(
         "fixed lg:static inset-y-0 left-0 z-[70] w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col shadow-2xl lg:shadow-none h-screen overflow-hidden",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
@@ -148,7 +149,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           </div>
         </div>
 
-        {/* This container scrolls when menu items exceed viewport height */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-10">
           <SidebarSection title="User Hub">
             {currentRolePerms.sidebar.dashboard && <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />}
@@ -174,6 +174,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
               <SidebarSection title="People Control">
                 {currentRolePerms.sidebar.users && <NavItem to="/users" icon={UsersRound} label="Manage Users" />}
                 {isAdmin && <NavItem to="/notifications" icon={Bell} label="Access Requests" badge={counts.access} />}
+                {isAdmin && <NavItem to="/admin/verify" icon={ShieldCheck} label="Verify Identity" />}
+                {isAdmin && <NavItem to="/verification-history" icon={ClipboardList} label="Verification History" />}
                 {isAdmin && <NavItem to="/team-id-cards" icon={IdCard} label="Team ID Cards" />}
               </SidebarSection>
 
@@ -185,7 +187,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           )}
         </div>
 
-        {/* Footer section stays fixed at the bottom */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
           <div className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm mb-3">
             <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-black overflow-hidden border border-red-100">

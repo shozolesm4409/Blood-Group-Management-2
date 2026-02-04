@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { getUsers } from '../services/api';
 import { Card, Button, Badge } from '../components/UI';
 import { User, UserRole } from '../types';
-import { Download, Droplet, User as UserIcon, ShieldCheck, Mail, Phone, MapPin, Printer, QrCode } from 'lucide-react';
+import { Download, Droplet, User as UserIcon, ShieldCheck, Printer, QrCode } from 'lucide-react';
 import { toJpeg } from 'html-to-image';
 import clsx from 'clsx';
 
@@ -15,92 +15,126 @@ export const IDCardFrame = React.forwardRef<HTMLDivElement, { user: User }>(({ u
   return (
     <div 
       ref={ref}
-      className="id-card-container relative w-[320px] h-[540px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 flex flex-col font-sans select-none"
+      className="id-card-container relative w-[340px] h-[550px] bg-white rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col font-sans select-none border border-slate-100"
     >
-      {/* Top Brand Area (Deep Red Theme) */}
-      <div className="h-[160px] bg-[#991b1b] relative overflow-hidden flex-shrink-0">
-        {/* Decorative Professional Curves */}
-        <div className="absolute top-0 right-0 w-full h-full">
-           <div className="absolute top-[-20%] right-[-10%] w-[120%] h-[120%] bg-red-900 rounded-[5rem] rotate-[15deg] opacity-40"></div>
-           <div className="absolute top-[10%] right-[-30%] w-[100%] h-[100%] bg-red-400/20 rounded-[5rem] rotate-[-10deg]"></div>
+      {/* Top Section - Deep Navy */}
+      <div className="h-[210px] bg-[#001f3f] relative flex flex-col items-center pt-8 overflow-hidden">
+        {/* Branding with Integrated Logo */}
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="flex items-center gap-2 mb-0.5">
+            <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-lg">
+              <Droplet className="text-[#880e0e] fill-current" size={20} />
+            </div>
+            <h3 className="text-white font-black tracking-[0.02em] text-[26px] leading-none">BLOODLINK</h3>
+          </div>
+          <p className="text-[9px] text-[#e11d48] font-black uppercase tracking-[0.2em]">OFFICIAL DIGITAL IDENTITY</p>
         </div>
-        
-        {/* Logo & Org Name */}
-        <div className="relative z-10 pt-5 px-5 flex flex-col items-center">
-           <div className="w-9 h-9 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-1 ring-4 ring-white/10">
-              <Droplet size={20} className="text-red-600 fill-current" />
+
+        {/* Profile Image - Circle with Thick Red Border */}
+        <div className="relative mt-5 z-20">
+          <div className="w-32 h-32 rounded-full border-[5px] border-[#e11d48] bg-white overflow-hidden shadow-2xl flex items-center justify-center ring-4 ring-black/10">
+            {user.avatar ? (
+              <img 
+                src={user.avatar} 
+                className="w-full h-full object-cover" 
+                alt={user.name} 
+                crossOrigin="anonymous"
+              />
+            ) : (
+              <UserIcon size={56} className="text-slate-200" />
+            )}
+          </div>
+        </div>
+
+        {/* Navy/Red Decorative Wave Layers at bottom of header */}
+        <div className="absolute bottom-0 left-0 w-full h-12 z-10">
+          <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="h-full w-full">
+            <path d="M0.00,49.98 C150.00,150.00 349.20,-49.98 500.00,49.98 L500.00,150.00 L0.00,150.00 Z" style={{ stroke: 'none', fill: '#e11d48' }}></path>
+          </svg>
+        </div>
+        <div className="absolute bottom-0 left-0 w-full h-10 z-10">
+          <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="h-full w-full">
+            <path d="M0.00,49.98 C150.00,150.00 349.20,-49.98 500.00,49.98 L500.00,150.00 L0.00,150.00 Z" style={{ stroke: 'none', fill: '#880e0e' }}></path>
+          </svg>
+        </div>
+        <div className="absolute bottom-0 left-0 w-full h-8 z-10">
+          <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="h-full w-full">
+            <path d="M0.00,49.98 C150.00,150.00 349.20,-49.98 500.00,49.98 L500.00,150.00 L0.00,150.00 Z" style={{ stroke: 'none', fill: '#ffffff' }}></path>
+          </svg>
+        </div>
+      </div>
+
+      {/* Main Content Body */}
+      <div className="flex-1 bg-white px-8 pt-2 flex flex-col items-center relative">
+        {/* Subtle Blood Logo Watermark (জলসাফ) */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none z-0">
+          <Droplet size={200} className="text-[#e11d48] fill-current" />
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center w-full">
+          <h4 className="text-[24px] font-black text-[#001f3f] tracking-tight leading-tight uppercase text-center mt-2">
+            {user.name}
+          </h4>
+          
+          {/* Designation Badge - Reduced Padding as requested */}
+          <div className="mt-1.5 mb-3.5">
+            <div className={clsx(
+              "px-6 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.1em] shadow-md border ring-4 ring-white",
+              user.role === UserRole.ADMIN ? "bg-[#e11d48] text-white border-red-700" :
+              user.role === UserRole.EDITOR ? "bg-[#001f3f] text-white border-slate-800" :
+              "bg-green-600 text-white border-green-700"
+            )}>
+              {user.role === UserRole.ADMIN ? 'System Administrator' : (user.role === UserRole.EDITOR ? 'System Editor' : 'Verified Donor')}
+            </div>
+          </div>
+
+          {/* Data List - Font size increased to 13px as requested */}
+          <div className="w-full space-y-1.5 px-4 mt-1 mb-8">
+            <DataRow label="ID No" value={user.idNumber || 'BL-000000'} />
+            <DataRow label="Group" value={user.bloodGroup} />
+            <DataRow label="Phone" value={user.phone || 'N/A'} />
+            <DataRow label="Email" value={user.email} />
+            <DataRow label="Join" value={new Date().toLocaleDateString('en-GB')} />
+            <DataRow label="Expire" value={new Date(new Date().setFullYear(new Date().getFullYear() + 3)).toLocaleDateString('en-GB')} />
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Section with Reverse Wave */}
+      <div className="h-[90px] relative overflow-hidden bg-white flex items-end">
+        {/* Wave background */}
+        <div className="absolute top-0 left-0 w-full h-8 transform rotate-180">
+          <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="h-full w-full">
+            <path d="M0.00,49.98 C150.00,150.00 349.20,-49.98 500.00,49.98 L500.00,150.00 L0.00,150.00 Z" style={{ stroke: 'none', fill: '#e11d48' }}></path>
+          </svg>
+        </div>
+        <div className="absolute top-0 left-0 w-full h-6 transform rotate-180">
+           <svg viewBox="0 0 500 150" preserveAspectRatio="none" className="h-full w-full">
+            <path d="M0.00,49.98 C150.00,150.00 349.20,-49.98 500.00,49.98 L500.00,150.00 L0.00,150.00 Z" style={{ stroke: 'none', fill: '#001f3f' }}></path>
+          </svg>
+        </div>
+
+        <div className="w-full px-10 pb-4 flex items-center justify-between z-10">
+           <div className="flex flex-col">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">VERIFIED IDENTITY</span>
+              <span className="text-[7px] font-bold text-slate-300 mt-1">Official BloodLink Network Secure Access</span>
            </div>
-           <h3 className="text-white font-black tracking-tighter text-xl leading-none">BLOODLINK</h3>
-           <p className="text-[7px] text-red-100 font-black uppercase tracking-[0.25em] mt-1 opacity-90">Official Digital Identity</p>
+           <div className="w-14 h-14 bg-white rounded-lg border border-slate-100 p-0.5 shadow-md">
+              <img src={qrUrl} alt="QR" className="w-full h-full object-contain" crossOrigin="anonymous" />
+           </div>
         </div>
       </div>
-
-      {/* Profile Photo Area - Increased size to w-32 (128px) */}
-      <div className="relative z-20 -mt-16 flex justify-center">
-         <div className="w-32 h-32 bg-white rounded-[2rem] p-1.5 shadow-2xl ring-1 ring-slate-100/50">
-            <div className="w-full h-full bg-slate-50 rounded-[1.5rem] overflow-hidden flex items-center justify-center border-2 border-white">
-              {user.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  className="w-full h-full object-cover" 
-                  alt={user.name} 
-                  crossOrigin="anonymous"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjY2JkNTVlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE5IDIxdjItMmExMCAxMCAwIDAgMC0yMCAwdi0yYTEwIDEwIDAgMCAxIDEwLTExWiIvPjxjaXJjbGUgY3g9IjEyIiBjeT0iNyIgcj0iNCIvPjwvc3ZnPg==';
-                  }}
-                />
-              ) : (
-                <UserIcon size={48} className="text-slate-300" />
-              )}
-            </div>
-         </div>
-      </div>
-
-      {/* User Identity Details */}
-      <div className="flex-1 px-8 pt-6 pb-4 flex flex-col items-center text-center">
-         <h4 className="text-lg font-black text-slate-900 tracking-tight leading-tight uppercase mb-1">{user.name}</h4>
-         <div className="mb-2">
-           <Badge color={user.role === UserRole.USER ? 'red' : 'blue'} className="text-[8px] px-2.5 py-0.5 shadow-sm border border-white">
-             {user.role === UserRole.USER ? 'VERIFIED DONOR' : `SYSTEM ${user.role}`}
-           </Badge>
-         </div>
-
-         {/* Mark section lowered significantly as requested (mt-12) */}
-         <div className="w-full space-y-2 mt-12">
-            <div className="flex items-center justify-between bg-red-50/60 px-4 py-2.5 rounded-xl border border-red-100/50 shadow-sm">
-               <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">BL ID</span>
-               <span className="text-[11px] font-black text-red-700 tracking-wider">{user.idNumber || 'BL-XXXXXX'}</span>
-            </div>
-            <div className="flex items-center justify-between bg-slate-50/80 px-4 py-2.5 rounded-xl border border-slate-100/50">
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phone</span>
-               <span className="text-[11px] font-bold text-slate-700">{user.phone || 'N/A'}</span>
-            </div>
-            <div className="flex items-center justify-between bg-slate-50/80 px-4 py-2.5 rounded-xl border border-slate-100/50">
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Group</span>
-               <span className="text-[11px] font-black text-red-600">{user.bloodGroup}</span>
-            </div>
-         </div>
-      </div>
-
-      {/* Footer Section with Verification QR */}
-      <div className="h-[80px] bg-slate-50 border-t border-slate-100 px-6 flex items-center justify-between relative overflow-hidden flex-shrink-0">
-         <div className="absolute bottom-0 right-0 w-24 h-24 bg-red-600/5 rounded-full -mb-12 -mr-12"></div>
-         
-         <div className="flex-1 text-left">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Identity Verified</p>
-            <p className="text-[7px] font-bold text-slate-400 max-w-[150px] leading-tight">Scan to verify donor status on our official network.</p>
-         </div>
-         <div className="w-12 h-12 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center shadow-md p-1">
-            <img src={qrUrl} alt="Verification QR" className="w-full h-full object-contain" crossOrigin="anonymous" />
-         </div>
-      </div>
-      
-      {/* Side Security Mark */}
-      <div className="absolute left-0 top-[180px] w-1.5 h-20 bg-red-600 rounded-r-full shadow-md"></div>
     </div>
   );
 });
+
+const DataRow = ({ label, value }: { label: string, value: string }) => (
+  <div className="flex text-[13px] font-bold items-start leading-tight py-0">
+    <span className="w-20 text-slate-500 uppercase tracking-tight whitespace-nowrap flex-shrink-0">{label}</span>
+    <span className="text-slate-400 mr-4 font-black flex-shrink-0">:</span>
+    <span className="flex-1 text-[#001f3f] font-black break-words leading-tight">{value}</span>
+  </div>
+);
 
 export const AdminIDCards = () => {
   const [registry, setRegistry] = useState<User[]>([]);
@@ -124,83 +158,78 @@ export const AdminIDCards = () => {
     if (!el) return;
     
     try {
-      // Small buffer to ensure images are ready
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 250));
       
       const dataUrl = await toJpeg(el, { 
         quality: 1, 
         backgroundColor: '#ffffff',
-        pixelRatio: 3,
+        pixelRatio: 4,
         cacheBust: true,
-        style: {
-          transform: 'scale(1)',
-          transformOrigin: 'top left'
-        }
       });
       
       const link = document.createElement('a');
-      link.download = `BloodLink-ID-${name.replace(/\s+/g, '-').toLowerCase()}-${userId}.jpg`;
+      link.download = `BloodLink-ID-${name.replace(/\s+/g, '-').toLowerCase()}.jpg`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (err) {
       console.error('Download error:', err);
-      alert("Download failed. This is likely due to browser CORS security with the profile image. Please try again or use the print function.");
+      alert("Capture failed. This usually happens due to browser safety restrictions on external images.");
     }
   };
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-40 gap-4">
-      <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-      <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Generating Registry...</p>
+      <div className="w-14 h-14 border-[5px] border-slate-100 border-t-red-600 rounded-full animate-spin"></div>
+      <p className="font-black text-slate-400 uppercase tracking-[0.3em] text-[10px]">Processing Database...</p>
     </div>
   );
 
   return (
-    <div className="space-y-10 pb-20 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6 border-b border-slate-100 pb-8 no-print">
-        <div>
-           <h1 className="text-3xl font-black text-slate-900 tracking-tighter">Identity Management</h1>
-           <p className="text-slate-500 font-medium">Verify and download official secure identity cards for all users.</p>
+    <div className="space-y-12 pb-24 max-w-7xl mx-auto px-4 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-8 border-b border-slate-100 pb-12 no-print">
+        <div className="text-center md:text-left">
+           <div className="inline-flex items-center gap-2 bg-red-50 text-red-600 px-4 py-1.5 rounded-full mb-4">
+              <ShieldCheck size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Digital Registry Hub</span>
+           </div>
+           <h1 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-[-0.04em]">Staff Identity System</h1>
+           <p className="text-slate-500 font-medium mt-2 max-w-lg">Manage and download high-resolution identification tokens for verified community members.</p>
         </div>
         <div className="flex items-center gap-4">
            <select 
              value={filter} 
              onChange={(e) => setFilter(e.target.value as any)}
-             className="bg-white border border-slate-200 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-red-500/10 shadow-sm transition-all"
+             className="bg-white border border-slate-200 px-6 py-4 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-red-500/10 shadow-sm hover:border-slate-300 transition-all cursor-pointer"
            >
-             <option value="ALL">All Registered Members</option>
-             <option value="TEAM">Core Staff Team</option>
+             <option value="ALL">All Registered</option>
+             <option value="TEAM">Core Staff</option>
            </select>
-           <Button onClick={() => window.print()} className="rounded-2xl px-10 shadow-2xl bg-slate-900 hover:bg-black py-4">
-              <Printer size={20} className="mr-2" /> Print Bulk
+           <Button onClick={() => window.print()} className="rounded-[1.5rem] px-10 shadow-2xl bg-[#001f3f] hover:bg-black py-5 group border-0">
+              <Printer size={20} className="mr-3 group-hover:scale-110 transition-transform" /> Print Batch
            </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16 place-items-center">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-24 place-items-center">
         {filteredRegistry.map(member => (
-          <div key={member.id} className="relative group flex flex-col items-center transition-all duration-300">
-             <div className="mb-4">
-                {/* Fixed ref assignment to avoid returning a value in the ref callback and resolve TS error */}
+          <div key={member.id} className="relative group flex flex-col items-center animate-in fade-in slide-in-from-bottom-10 duration-700">
+             <div className="mb-10 transition-transform duration-500 group-hover:-translate-y-2">
                 <IDCardFrame user={member} ref={el => { cardRefs.current[member.id] = el; }} />
              </div>
              
-             <div className="flex items-center gap-4 no-print">
-                <Badge color="gray" className="text-[10px] font-black px-4 py-2 rounded-xl bg-white border border-slate-100 shadow-sm">
-                   ID: {member.idNumber || 'N/A'}
-                </Badge>
+             <div className="flex flex-col items-center gap-4 no-print w-full max-w-[280px]">
                 <button 
                   onClick={() => downloadAsJpg(member.id, member.name)}
-                  className="bg-white border border-slate-200 p-4 rounded-[2rem] shadow-xl hover:shadow-2xl hover:border-red-600 transition-all flex items-center gap-3 group/btn active:scale-95"
+                  className="w-full bg-white border border-slate-100 p-5 rounded-[2.5rem] shadow-lg hover:shadow-xl hover:border-[#001f3f] transition-all flex items-center justify-center gap-4 group/btn active:scale-95"
                 >
-                   <div className="w-10 h-10 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center group-hover/btn:bg-red-600 group-hover/btn:text-white transition-colors shadow-inner">
+                   <div className="w-10 h-10 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center group-hover/btn:bg-[#001f3f] group-hover/btn:text-white transition-colors">
                       <Download size={20} />
                    </div>
-                   <div className="text-left pr-4">
-                      <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none mb-0.5">Download</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Identity JPG</p>
+                   <div className="text-left">
+                      <p className="text-[11px] font-black text-[#001f3f] uppercase tracking-widest leading-none mb-1">Download Token</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">High Res JPG</p>
                    </div>
                 </button>
              </div>
@@ -214,11 +243,11 @@ export const AdminIDCards = () => {
           body, main { background: white !important; padding: 0 !important; margin: 0 !important; }
           .grid { display: block !important; }
           .id-card-container { 
-            margin: 40px auto !important; 
+            margin: 60px auto !important; 
             page-break-inside: avoid !important; 
             box-shadow: none !important;
             border: 1px solid #eee !important;
-            transform: scale(0.9);
+            transform: scale(1);
           }
         }
       `}} />
